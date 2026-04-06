@@ -1,3 +1,4 @@
+import { apiFetch } from '../UserContext';
 import { useState, useEffect } from 'react';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import {
@@ -58,15 +59,15 @@ export default function Trends() {
   const [showCumulative, setShowCumulative] = useState(false);
 
   useEffect(() => {
-    fetch('/api/accounts').then(r => r.json()).then(d => setAccounts(d.accounts || []));
-    fetch('/api/transactions/categories').then(r => r.json()).then(() => {});
+    apiFetch('/api/accounts').then(r => r.json()).then(d => setAccounts(d.accounts || []));
+    apiFetch('/api/transactions/categories').then(r => r.json()).then(() => {});
   }, []);
 
   useEffect(() => {
     setLoading(true);
     const params = new URLSearchParams({ group_by: groupBy });
     Object.entries(filters).forEach(([k, v]) => { if (v) params.set(k, v); });
-    fetch(`/api/transactions/trends?${params}`)
+    apiFetch(`/api/transactions/trends?${params}`)
       .then(r => r.json())
       .then(d => { setData(d); setLoading(false); })
       .catch(() => setLoading(false));

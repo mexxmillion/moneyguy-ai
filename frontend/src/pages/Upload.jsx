@@ -1,3 +1,4 @@
+import { apiFetch } from '../UserContext';
 import { useState, useRef } from 'react';
 
 export default function Upload() {
@@ -30,7 +31,7 @@ export default function Upload() {
       formData.append('files', item.file);
 
       try {
-        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        const res = await apiFetch('/api/upload', { method: 'POST', body: formData });
         if (!res.ok) throw new Error(`Server error ${res.status}`);
         const data = await res.json();
         setQueue(prev => prev.map(i => i.id === item.id ? { ...i, status: 'done', result: data } : i));

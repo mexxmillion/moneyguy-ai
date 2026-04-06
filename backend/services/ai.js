@@ -17,13 +17,15 @@ When user asks for statement details, include period_start, period_end, closing_
 Categories include: Groceries, Dining, Transport/Parking, Subscriptions, Shopping, Entertainment, Auto/Mechanic, Interest/Fees, Payments, Uncategorized.
 `;
 
-async function queryAI(userQuestion, apiKey) {
+async function queryAI(userQuestion, apiKey, userId = 1) {
   const systemPrompt = `You are MoneyGuy's SQL brain. Convert the user's finance question into a precise SQLite query.
 You must respond with a JSON object containing:
 - "sql": a safe, READ-ONLY SQLite query (SELECT only, no INSERT/UPDATE/DELETE/DROP)
 - "explanation": a brief explanation of what you're querying
 
 ${SCHEMA_DESCRIPTION}
+
+CRITICAL: This is a multi-user system. Always filter by user_id = ${userId} on accounts, transactions, statements, and budgets tables. Never return data from other users.
 
 When querying amounts, remember they are in cents. Use amount/100.0 for dollar display.
 Use LIKE with % for fuzzy merchant matching.

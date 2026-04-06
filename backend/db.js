@@ -1,3 +1,4 @@
+require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 const Database = require('better-sqlite3');
 const path = require('path');
 
@@ -9,8 +10,18 @@ db.pragma('foreign_keys = ON');
 
 function migrate() {
   db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      emoji TEXT NOT NULL DEFAULT '👤',
+      telegram_bot_token TEXT,
+      telegram_user_id INTEGER,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS accounts (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER REFERENCES users(id) DEFAULT 1,
       name TEXT NOT NULL,
       institution TEXT,
       type TEXT CHECK(type IN ('credit','debit','investment')) NOT NULL DEFAULT 'credit',
@@ -31,6 +42,7 @@ function migrate() {
 
     CREATE TABLE IF NOT EXISTS statements (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER REFERENCES users(id) DEFAULT 1,
       account_id INTEGER REFERENCES accounts(id),
       filename TEXT NOT NULL,
       period_start TEXT,
@@ -52,6 +64,7 @@ function migrate() {
 
     CREATE TABLE IF NOT EXISTS transactions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER REFERENCES users(id) DEFAULT 1,
       statement_id INTEGER REFERENCES statements(id),
       account_id INTEGER REFERENCES accounts(id),
       transaction_date TEXT NOT NULL,
@@ -76,6 +89,7 @@ function migrate() {
 
     CREATE TABLE IF NOT EXISTS audit_log (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER REFERENCES users(id) DEFAULT 1,
       event_type TEXT NOT NULL,
       entity_type TEXT,
       entity_id INTEGER,
@@ -86,10 +100,12 @@ function migrate() {
 
     CREATE TABLE IF NOT EXISTS budgets (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      category TEXT NOT NULL UNIQUE,
+      user_id INTEGER REFERENCES users(id) DEFAULT 1,
+      category TEXT NOT NULL,
       monthly_limit INTEGER NOT NULL,
       is_active INTEGER NOT NULL DEFAULT 1,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(user_id, category)
     );
 
     CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(transaction_date);
@@ -115,6 +131,12 @@ function migrate() {
     ['accounts', 'card_type', 'TEXT'],
     ['accounts', 'credit_limit', 'INTEGER'],
     ['accounts', 'is_active', 'INTEGER DEFAULT 1'],
+    // Multi-user columns
+    ['accounts', 'user_id', 'INTEGER REFERENCES users(id) DEFAULT 1'],
+    ['statements', 'user_id', 'INTEGER REFERENCES users(id) DEFAULT 1'],
+    ['transactions', 'user_id', 'INTEGER REFERENCES users(id) DEFAULT 1'],
+    ['audit_log', 'user_id', 'INTEGER REFERENCES users(id) DEFAULT 1'],
+    ['budgets', 'user_id', 'INTEGER REFERENCES users(id) DEFAULT 1'],
   ];
   for (const [table, col, type] of alterStatements) {
     try { db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${type}`); } catch (e) { /* column already exists */ }
@@ -124,6 +146,42 @@ function migrate() {
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_statements_hash ON statements(source_file_hash);
     CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at);
+    CREATE INDEX IF NOT EXISTS idx_accounts_user ON accounts(user_id);
+    CREATE INDEX IF NOT EXISTS idx_transactions_user ON transactions(user_id);
+    CREATE INDEX IF NOT EXISTS idx_statements_user ON statements(user_id);
+    CREATE INDEX IF NOT EXISTS idx_budgets_user ON budgets(user_id);
+  `);
+
+  // Rebuild budgets table if it has the old UNIQUE(category) constraint
+  // Need UNIQUE(user_id, category) instead
+  try {
+    const info = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='budgets'").get();
+    if (info && info.sql && info.sql.includes('category TEXT NOT NULL UNIQUE') && !info.sql.includes('UNIQUE(user_id')) {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS budgets_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER REFERENCES users(id) DEFAULT 1,
+          category TEXT NOT NULL,
+          monthly_limit INTEGER NOT NULL,
+          is_active INTEGER NOT NULL DEFAULT 1,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          UNIQUE(user_id, category)
+        );
+        INSERT OR IGNORE INTO budgets_new (id, user_id, category, monthly_limit, is_active, created_at)
+          SELECT id, COALESCE(user_id, 1), category, monthly_limit, is_active, created_at FROM budgets;
+        DROP TABLE budgets;
+        ALTER TABLE budgets_new RENAME TO budgets;
+      `);
+    }
+  } catch (e) { /* table already correct */ }
+
+  // Backfill user_id=1 for any existing rows with NULL user_id
+  db.exec(`
+    UPDATE accounts SET user_id = 1 WHERE user_id IS NULL;
+    UPDATE transactions SET user_id = 1 WHERE user_id IS NULL;
+    UPDATE statements SET user_id = 1 WHERE user_id IS NULL;
+    UPDATE budgets SET user_id = 1 WHERE user_id IS NULL;
+    UPDATE audit_log SET user_id = 1 WHERE user_id IS NULL;
   `);
 }
 
@@ -176,7 +234,29 @@ function seedMerchantRules() {
   }
 }
 
+function seedUsers() {
+  const existing = db.prepare('SELECT COUNT(*) as count FROM users').get();
+  if (existing.count > 0) return;
+
+  const insertUser = db.prepare(`INSERT INTO users (id, name, emoji, telegram_bot_token, telegram_user_id) VALUES (?, ?, ?, ?, ?)`);
+
+  // User 1: you
+  insertUser.run(
+    1, 'Me', '💰',
+    process.env.TELEGRAM_BOT_TOKEN || null,
+    process.env.TELEGRAM_AUTHORIZED_USER ? parseInt(process.env.TELEGRAM_AUTHORIZED_USER) : null
+  );
+
+  // User 2: wife
+  insertUser.run(
+    2, 'Wifey', '👩',
+    '8775743198:AAE5jEZiimrT2EKWVDZXCCDHixwr5waxiZw',
+    null // will be set when she first messages the bot
+  );
+}
+
 migrate();
+seedUsers();
 seedCategories();
 seedMerchantRules();
 

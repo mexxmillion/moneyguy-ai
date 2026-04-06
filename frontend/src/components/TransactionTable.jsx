@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import CategoryBadge from './CategoryBadge';
 
 const fmt = (cents) => {
@@ -6,6 +6,15 @@ const fmt = (cents) => {
   const dollars = Number.isInteger(n) && Math.abs(n) > 100 ? n / 100 : n;
   return (dollars < 0 ? '-' : '') + Math.abs(dollars).toLocaleString('en-CA', { style: 'currency', currency: 'CAD' });
 };
+
+const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-CA', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
+
+const DetailField = ({ label, value, className = '' }) => (
+  <div className={className}>
+    <span className="text-gray-500 block mb-0.5">{label}</span>
+    <span className="text-gray-300">{value ?? '—'}</span>
+  </div>
+);
 
 const SORT_COLS = ['transaction_date', 'merchant_name', 'category', 'amount'];
 
@@ -17,18 +26,23 @@ export default function TransactionTable({
   const [editingId, setEditingId] = useState(null);
   const [editValues, setEditValues] = useState({});
   const [lastClickedIdx, setLastClickedIdx] = useState(null);
+  const [expandedId, setExpandedId] = useState(null);
 
   const handleRowClick = (e, tx, idx) => {
-    if (!selectable || !onSelect) return;
     // Ignore clicks on interactive elements
     if (e.target.closest('select,button,input,a')) return;
-    if (e.shiftKey && lastClickedIdx !== null) {
-      const lo = Math.min(lastClickedIdx, idx);
-      const hi = Math.max(lastClickedIdx, idx);
-      for (let i = lo; i <= hi; i++) onSelect(transactions[i].id, true);
+
+    if (selectable && onSelect) {
+      if (e.shiftKey && lastClickedIdx !== null) {
+        const lo = Math.min(lastClickedIdx, idx);
+        const hi = Math.max(lastClickedIdx, idx);
+        for (let i = lo; i <= hi; i++) onSelect(transactions[i].id, true);
+      } else {
+        onSelect(tx.id);
+        setLastClickedIdx(idx);
+      }
     } else {
-      onSelect(tx.id);
-      setLastClickedIdx(idx);
+      setExpandedId(expandedId === tx.id ? null : tx.id);
     }
   };
 
@@ -85,8 +99,8 @@ export default function TransactionTable({
         </thead>
         <tbody className="divide-y divide-gray-800/50">
           {transactions.map((tx, idx) => (
+          <React.Fragment key={tx.id}>
             <tr
-              key={tx.id}
               onClick={(e) => handleRowClick(e, tx, idx)}
               className={`transition-colors group ${
                 isSelected(tx.id)
@@ -94,7 +108,7 @@ export default function TransactionTable({
                   : tx.category === 'Ignore'
                   ? 'opacity-40 hover:opacity-70 border-l-2 border-l-transparent'
                   : 'hover:bg-gray-800/30 border-l-2 border-l-transparent'
-              } ${selectable ? 'cursor-pointer select-none' : ''}`}
+              } ${selectable ? 'cursor-pointer select-none' : 'cursor-pointer'}`}
             >
               <td className="p-3 whitespace-nowrap text-gray-400 text-xs">{tx.transaction_date}</td>
               <td className="p-3 text-gray-100 max-w-[180px] truncate font-medium">{tx.merchant_name}</td>
@@ -151,6 +165,25 @@ export default function TransactionTable({
                 )}
               </td>
             </tr>
+            {expandedId === tx.id && (
+              <tr className="bg-gray-900/60">
+                <td colSpan={7} className="px-6 py-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                    <DetailField label="Account" value={tx.account_name || '—'} />
+                    <DetailField label="Account ID" value={tx.account_id} />
+                    <DetailField label="Posting Date" value={fmtDate(tx.posting_date)} />
+                    <DetailField label="Transaction Date" value={fmtDate(tx.transaction_date)} />
+                    <DetailField label="Currency" value={tx.currency || 'CAD'} />
+                    <DetailField label="Subcategory" value={tx.subcategory || '—'} />
+                    <DetailField label="Statement ID" value={tx.statement_id || '—'} />
+                    <DetailField label="Reviewed" value={tx.is_reviewed ? 'Yes' : 'No'} />
+                    <DetailField label="Ingested" value={fmtDate(tx.created_at)} className="col-span-2" />
+                    <DetailField label="Full Description" value={tx.description} className="col-span-2" />
+                  </div>
+                </td>
+              </tr>
+            )}
+          </React.Fragment>
           ))}
         </tbody>
       </table>

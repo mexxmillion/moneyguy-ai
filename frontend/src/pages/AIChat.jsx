@@ -1,3 +1,4 @@
+import { apiFetch } from '../UserContext';
 import { useState, useRef, useEffect } from 'react';
 
 export default function AIChat() {
@@ -20,7 +21,7 @@ export default function AIChat() {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/ai/query', {
+      const res = await apiFetch('/api/ai/query', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question }),

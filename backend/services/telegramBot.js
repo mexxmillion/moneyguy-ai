@@ -12,21 +12,8 @@ const os = require('os');
 const https = require('https');
 const db = require('../db');
 
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const AUTHORIZED_USER = parseInt(process.env.TELEGRAM_AUTHORIZED_USER || '962930679');
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-
-if (!BOT_TOKEN) {
-  console.error('TELEGRAM_BOT_TOKEN not set in .env');
-  process.exit(1);
-}
-
-const bot = new TelegramBot(BOT_TOKEN, { polling: true });
-console.log('🤖 MoneyGuy Telegram bot started — @moneymaster8888_bot');
-
-function isAuthorized(msg) {
-  return msg.from && msg.from.id === AUTHORIZED_USER;
-}
+const activeBots = new Map(); // botToken -> TelegramBot instance
 
 function formatAmount(cents) {
   return '$' + (cents / 100).toFixed(2);
@@ -116,66 +103,10 @@ async function generatePDF(question, rows, summary, sql) {
   });
 }
 
-// /start
-bot.onText(/\/start/, (msg) => {
-  if (!isAuthorized(msg)) return bot.sendMessage(msg.chat.id, '🚫 Unauthorized.');
-  bot.sendMessage(msg.chat.id,
-    '💰 MoneyGuy 2.0 is online!\n\n' +
-    'Ask me anything about your finances:\n\n' +
-    '• "How much did I spend on groceries in February?"\n' +
-    '• "Show my biggest purchases last month"\n' +
-    '• "What did I spend at T&T?"\n' +
-    '• "Total dining expenses by month"\n\n' +
-    'Add "as pdf" to any question to get results as a PDF file.\n\n' +
-    'Commands:\n' +
-    '/start - this help\n' +
-    '/summary - this month spending by category\n' +
-    '/top - top 10 merchants all time'
-  );
-});
-
-// /summary
-bot.onText(/\/summary/, async (msg) => {
-  if (!isAuthorized(msg)) return bot.sendMessage(msg.chat.id, '🚫 Unauthorized.');
-  const chatId = msg.chat.id;
-  bot.sendMessage(chatId, '📊 Pulling this month\'s summary...');
-  try {
-    const question = 'Show me total spending by category for this month, ordered by highest spend';
-    const { sql } = await queryAI(question, OPENROUTER_API_KEY);
-    const { rows, error } = executeQuery(sql);
-    if (error) return bot.sendMessage(chatId, '❌ Error: ' + error);
-    const summary = await summarizeResults(question, rows, sql, OPENROUTER_API_KEY);
-    bot.sendMessage(chatId, '📊 This Month by Category\n\n' + formatRows(rows) + '\n\n' + summary);
-  } catch (err) {
-    bot.sendMessage(chatId, '❌ Error: ' + err.message);
-  }
-});
-
-// /top
-bot.onText(/\/top/, async (msg) => {
-  if (!isAuthorized(msg)) return bot.sendMessage(msg.chat.id, '🚫 Unauthorized.');
-  const chatId = msg.chat.id;
-  bot.sendMessage(chatId, '🏆 Finding your top merchants...');
-  try {
-    const question = 'Show top 10 merchants by total amount spent, all time';
-    const { sql } = await queryAI(question, OPENROUTER_API_KEY);
-    const { rows, error } = executeQuery(sql);
-    if (error) return bot.sendMessage(chatId, '❌ Error: ' + error);
-    const lines = rows.map((r, i) => {
-      const name = r.merchant_name || r.description || r.merchant || '?';
-      const amt = r.total || r.total_amount || r.amount || 0;
-      return (i + 1) + '. ' + name + ' — ' + formatAmount(typeof amt === 'number' ? amt : amt * 100);
-    });
-    bot.sendMessage(chatId, '🏆 Top Merchants (All Time)\n\n' + lines.join('\n'));
-  } catch (err) {
-    bot.sendMessage(chatId, '❌ Error: ' + err.message);
-  }
-});
-
 // --- File ingestion helpers ---
 
-function downloadTelegramFile(filePath) {
-  const url = `https://api.telegram.org/file/bot${BOT_TOKEN}/${filePath}`;
+function downloadTelegramFile(botToken, filePath) {
+  const url = `https://api.telegram.org/file/bot${botToken}/${filePath}`;
   const tmpFile = path.join(os.tmpdir(), `moneyguy-${Date.now()}-${path.basename(filePath)}`);
   return new Promise((resolve, reject) => {
     const file = fs.createWriteStream(tmpFile);
@@ -186,16 +117,16 @@ function downloadTelegramFile(filePath) {
   });
 }
 
-function getDefaultAccount() {
-  let account = db.prepare('SELECT id FROM accounts LIMIT 1').get();
+function getDefaultAccount(userId) {
+  let account = db.prepare('SELECT id FROM accounts WHERE user_id = ? LIMIT 1').get(userId);
   if (!account) {
-    const r = db.prepare("INSERT INTO accounts (name, institution, type) VALUES ('Default Account', 'Unknown', 'credit')").run();
+    const r = db.prepare("INSERT INTO accounts (user_id, name, institution, type) VALUES (?, 'Default Account', 'Unknown', 'credit')").run(userId);
     account = { id: r.lastInsertRowid };
   }
   return account;
 }
 
-async function processAndInsert(transactions, filename, accountId, notes) {
+async function processAndInsert(transactions, filename, accountId, userId, notes) {
   const categorized = categorizeAll(transactions);
   if (notes) for (const t of categorized) t.notes = notes;
 
@@ -203,17 +134,17 @@ async function processAndInsert(transactions, filename, accountId, notes) {
   const toInsert = [...inserted, ...flagged];
 
   if (toInsert.length > 0) {
-    const stmt = db.prepare('INSERT INTO statements (account_id, filename, raw_text) VALUES (?, ?, ?)');
-    const stmtResult = stmt.run(accountId, filename, `[telegram: ${filename}]`);
+    const stmt = db.prepare('INSERT INTO statements (user_id, account_id, filename, raw_text) VALUES (?, ?, ?, ?)');
+    const stmtResult = stmt.run(userId, accountId, filename, `[telegram: ${filename}]`);
     const statementId = stmtResult.lastInsertRowid;
 
     const insertTx = db.prepare(`
-      INSERT INTO transactions (statement_id, account_id, transaction_date, posting_date, description, merchant_name, amount, currency, category, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO transactions (user_id, statement_id, account_id, transaction_date, posting_date, description, merchant_name, amount, currency, category, notes)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const insertMany = db.transaction((txns) => {
       for (const t of txns) {
-        insertTx.run(statementId, accountId, t.transaction_date, t.posting_date,
+        insertTx.run(userId, statementId, accountId, t.transaction_date, t.posting_date,
           t.description, t.merchant_name, t.amount, t.currency, t.category, t.notes || null);
       }
     });
@@ -224,7 +155,7 @@ async function processAndInsert(transactions, filename, accountId, notes) {
     imported: inserted.length,
     duplicates: duplicates.length,
     flagged: flagged.length,
-    transactions: toInsert, // actual transactions for display
+    transactions: toInsert,
   };
 }
 
@@ -240,45 +171,35 @@ function formatImportSummary(stats) {
     return parts.join('\n');
   }
 
-  // Account info
   if (stats.accountName) {
     parts.push(`🏦 Account: ${stats.accountName}${stats.isNewAccount ? ' (new)' : ''}`);
   }
-
-  // Statement period
   if (stats.period) {
     parts.push(`📅 Period: ${stats.period}`);
   }
-
-  // Balances
   if (stats.closingBalance !== undefined) {
     parts.push(`💳 Balance: ${formatAmount(stats.closingBalance)}`);
   }
   if (stats.paymentDueDate) {
     parts.push(`⏰ Due: ${stats.paymentDueDate} — min ${formatAmount(stats.minimumPayment || 0)}`);
   }
-
   parts.push('');
 
-  // Transaction counts
   parts.push(`✅ Imported ${stats.imported} new transactions`);
   if (stats.duplicates > 0) parts.push(`⏭️ ${stats.duplicates} duplicates skipped`);
   if (stats.flagged > 0) parts.push(`⚠️ ${stats.flagged} flagged for review`);
 
-  // Show transaction highlights
   if (stats.transactions && stats.transactions.length > 0) {
     const txns = stats.transactions;
     parts.push('');
 
     if (txns.length <= 8) {
-      // Small — show all
       parts.push('📋 Transactions:');
       txns.forEach(t => {
         const sign = t.amount < 0 ? '-' : '';
         parts.push(`  ${t.transaction_date} | ${t.merchant_name || t.description} | ${sign}${formatAmount(Math.abs(t.amount))} | ${t.category || '—'}`);
       });
     } else {
-      // Large — show highlights only
       const biggest = [...txns].sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount)).slice(0, 3);
       const byCategory = txns.reduce((acc, t) => {
         const cat = t.category || 'Other';
@@ -295,8 +216,7 @@ function formatImportSummary(stats) {
       parts.push('');
       parts.push('🔥 Biggest purchases:');
       biggest.forEach(t => parts.push(`  ${t.transaction_date} | ${t.merchant_name || t.description} | ${formatAmount(Math.abs(t.amount))}`) );
-      parts.push(`
-📊 Full details at http://100.90.81.105:5173`);
+      parts.push(`\n📊 Full details at http://100.90.81.105:5173`);
     }
   }
 
@@ -307,171 +227,279 @@ function formatImportSummary(stats) {
 const IMAGE_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const IMAGE_EXTS = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
 
-// Handle photos (compressed screenshots)
-bot.on('photo', async (msg) => {
-  if (!isAuthorized(msg)) return bot.sendMessage(msg.chat.id, '🚫 Unauthorized.');
-  const chatId = msg.chat.id;
-  bot.sendChatAction(chatId, 'typing');
+/**
+ * Register all event handlers for a single bot instance tied to a user.
+ */
+function registerBotHandlers(bot, user) {
+  const userId = user.id;
+  const botToken = user.telegram_bot_token;
+  const authorizedTelegramId = user.telegram_user_id;
 
-  let tmpFile;
-  try {
-    const photo = msg.photo[msg.photo.length - 1]; // highest resolution
-    const file = await bot.getFile(photo.file_id);
-    tmpFile = await downloadTelegramFile(file.file_path);
-
-    const result = await parseImageTransactions(tmpFile, OPENROUTER_API_KEY);
-    if (result.transactions.length === 0) {
-      return bot.sendMessage(chatId, '⚠️ No transactions found in this screenshot.' + (result.error ? ` (${result.error})` : ''));
+  function isAuthorized(msg) {
+    // If no telegram_user_id is set, capture the first user who messages
+    if (!authorizedTelegramId && msg.from) {
+      user.telegram_user_id = msg.from.id;
+      db.prepare('UPDATE users SET telegram_user_id = ? WHERE id = ?').run(msg.from.id, userId);
+      console.log(`Auto-registered Telegram user ${msg.from.id} for ${user.name}`);
+      return true;
     }
-
-    const account = getDefaultAccount();
-    const stats = await processAndInsert(result.transactions, 'screenshot.jpg', account.id, 'imported from screenshot');
-    bot.sendMessage(chatId, formatImportSummary(stats));
-  } catch (err) {
-    bot.sendMessage(chatId, '❌ Error processing photo: ' + err.message);
-  } finally {
-    if (tmpFile) fs.unlink(tmpFile, () => {});
+    return msg.from && msg.from.id === authorizedTelegramId;
   }
-});
 
-// Handle documents (PDF, CSV, ZIP, or images sent as files)
-bot.on('document', async (msg) => {
-  if (!isAuthorized(msg)) return bot.sendMessage(msg.chat.id, '🚫 Unauthorized.');
-  const chatId = msg.chat.id;
-  const doc = msg.document;
-  const mime = doc.mime_type || '';
-  const filename = doc.file_name || 'unknown';
-  const ext = path.extname(filename).toLowerCase();
-  bot.sendChatAction(chatId, 'typing');
+  // /start
+  bot.onText(/\/start/, (msg) => {
+    if (!isAuthorized(msg)) return bot.sendMessage(msg.chat.id, '🚫 Unauthorized.');
+    bot.sendMessage(msg.chat.id,
+      `💰 MoneyGuy 2.0 is online! (${user.name})\n\n` +
+      'Ask me anything about your finances:\n\n' +
+      '• "How much did I spend on groceries in February?"\n' +
+      '• "Show my biggest purchases last month"\n' +
+      '• "What did I spend at T&T?"\n' +
+      '• "Total dining expenses by month"\n\n' +
+      'Add "as pdf" to any question to get results as a PDF file.\n\n' +
+      'Commands:\n' +
+      '/start - this help\n' +
+      '/summary - this month spending by category\n' +
+      '/top - top 10 merchants all time'
+    );
+  });
 
-  let tmpFile;
-  try {
-    const file = await bot.getFile(doc.file_id);
-    tmpFile = await downloadTelegramFile(file.file_path);
-    const account = getDefaultAccount();
+  // /summary
+  bot.onText(/\/summary/, async (msg) => {
+    if (!isAuthorized(msg)) return bot.sendMessage(msg.chat.id, '🚫 Unauthorized.');
+    const chatId = msg.chat.id;
+    bot.sendMessage(chatId, '📊 Pulling this month\'s summary...');
+    try {
+      const question = 'Show me total spending by category for this month, ordered by highest spend';
+      const { sql } = await queryAI(question, OPENROUTER_API_KEY, userId);
+      const { rows, error } = executeQuery(sql);
+      if (error) return bot.sendMessage(chatId, '❌ Error: ' + error);
+      const summary = await summarizeResults(question, rows, sql, OPENROUTER_API_KEY);
+      bot.sendMessage(chatId, '📊 This Month by Category\n\n' + formatRows(rows) + '\n\n' + summary);
+    } catch (err) {
+      bot.sendMessage(chatId, '❌ Error: ' + err.message);
+    }
+  });
 
-    // Image sent as document
-    if (IMAGE_MIMES.includes(mime) || IMAGE_EXTS.includes(ext)) {
+  // /top
+  bot.onText(/\/top/, async (msg) => {
+    if (!isAuthorized(msg)) return bot.sendMessage(msg.chat.id, '🚫 Unauthorized.');
+    const chatId = msg.chat.id;
+    bot.sendMessage(chatId, '🏆 Finding your top merchants...');
+    try {
+      const question = 'Show top 10 merchants by total amount spent, all time';
+      const { sql } = await queryAI(question, OPENROUTER_API_KEY, userId);
+      const { rows, error } = executeQuery(sql);
+      if (error) return bot.sendMessage(chatId, '❌ Error: ' + error);
+      const lines = rows.map((r, i) => {
+        const name = r.merchant_name || r.description || r.merchant || '?';
+        const amt = r.total || r.total_amount || r.amount || 0;
+        return (i + 1) + '. ' + name + ' — ' + formatAmount(typeof amt === 'number' ? amt : amt * 100);
+      });
+      bot.sendMessage(chatId, '🏆 Top Merchants (All Time)\n\n' + lines.join('\n'));
+    } catch (err) {
+      bot.sendMessage(chatId, '❌ Error: ' + err.message);
+    }
+  });
+
+  // Handle photos (compressed screenshots)
+  bot.on('photo', async (msg) => {
+    if (!isAuthorized(msg)) return bot.sendMessage(msg.chat.id, '🚫 Unauthorized.');
+    const chatId = msg.chat.id;
+    bot.sendChatAction(chatId, 'typing');
+
+    let tmpFile;
+    try {
+      const photo = msg.photo[msg.photo.length - 1];
+      const file = await bot.getFile(photo.file_id);
+      tmpFile = await downloadTelegramFile(botToken, file.file_path);
+
       const result = await parseImageTransactions(tmpFile, OPENROUTER_API_KEY);
       if (result.transactions.length === 0) {
-        return bot.sendMessage(chatId, '⚠️ No transactions found in this image.' + (result.error ? ` (${result.error})` : ''));
+        return bot.sendMessage(chatId, '⚠️ No transactions found in this screenshot.' + (result.error ? ` (${result.error})` : ''));
       }
-      const stats = await processAndInsert(result.transactions, filename, account.id, 'imported from screenshot');
-      return bot.sendMessage(chatId, formatImportSummary(stats));
+
+      const account = getDefaultAccount(userId);
+      const stats = await processAndInsert(result.transactions, 'screenshot.jpg', account.id, userId, 'imported from screenshot');
+      bot.sendMessage(chatId, formatImportSummary(stats));
+    } catch (err) {
+      bot.sendMessage(chatId, '❌ Error processing photo: ' + err.message);
+    } finally {
+      if (tmpFile) fs.unlink(tmpFile, () => {});
     }
+  });
 
-    // PDF
-    if (ext === '.pdf' || mime === 'application/pdf') {
-      const buffer = fs.readFileSync(tmpFile);
-      const result = await parsePdf(buffer, OPENROUTER_API_KEY);
-      if (result.transactions.length === 0) {
-        return bot.sendMessage(chatId, '⚠️ No transactions found in this PDF.' + (result.error ? '\n' + result.error : ''));
-      }
-      const stats = await processAndInsert(result.transactions, filename, account.id, null);
-      return bot.sendMessage(chatId, formatImportSummary(stats));
-    }
+  // Handle documents (PDF, CSV, ZIP, or images sent as files)
+  bot.on('document', async (msg) => {
+    if (!isAuthorized(msg)) return bot.sendMessage(msg.chat.id, '🚫 Unauthorized.');
+    const chatId = msg.chat.id;
+    const doc = msg.document;
+    const mime = doc.mime_type || '';
+    const filename = doc.file_name || 'unknown';
+    const ext = path.extname(filename).toLowerCase();
+    bot.sendChatAction(chatId, 'typing');
 
-    // CSV
-    if (ext === '.csv' || mime === 'text/csv') {
-      const buffer = fs.readFileSync(tmpFile);
-      const result = parseCsv(buffer);
-      if (result.transactions.length === 0) {
-        return bot.sendMessage(chatId, '⚠️ No transactions found in this CSV.');
-      }
-      const stats = await processAndInsert(result.transactions, filename, account.id, null);
-      return bot.sendMessage(chatId, formatImportSummary(stats));
-    }
+    let tmpFile;
+    try {
+      const file = await bot.getFile(doc.file_id);
+      tmpFile = await downloadTelegramFile(botToken, file.file_path);
+      const account = getDefaultAccount(userId);
 
-    // ZIP
-    if (ext === '.zip' || mime === 'application/zip') {
-      const zip = new AdmZip(tmpFile);
-      const entries = zip.getEntries();
-      let totalStats = { imported: 0, duplicates: 0, flagged: 0 };
-
-      for (const entry of entries) {
-        if (entry.isDirectory) continue;
-        const entryExt = path.extname(entry.entryName).toLowerCase();
-        const entryPath = path.join(os.tmpdir(), `moneyguy-zip-${Date.now()}-${path.basename(entry.entryName)}`);
-        try {
-          fs.writeFileSync(entryPath, entry.getData());
-          let result;
-          if (entryExt === '.pdf') result = await parsePdf(entry.getData(), OPENROUTER_API_KEY);
-          else if (entryExt === '.csv') result = parseCsv(entry.getData());
-          else continue;
-
-          if (result.transactions.length > 0) {
-            const stats = await processAndInsert(result.transactions, entry.entryName, account.id, null);
-            totalStats.imported += stats.imported;
-            totalStats.duplicates += stats.duplicates;
-            totalStats.flagged += stats.flagged;
-          }
-        } finally {
-          fs.unlink(entryPath, () => {});
+      // Image sent as document
+      if (IMAGE_MIMES.includes(mime) || IMAGE_EXTS.includes(ext)) {
+        const result = await parseImageTransactions(tmpFile, OPENROUTER_API_KEY);
+        if (result.transactions.length === 0) {
+          return bot.sendMessage(chatId, '⚠️ No transactions found in this image.' + (result.error ? ` (${result.error})` : ''));
         }
+        const stats = await processAndInsert(result.transactions, filename, account.id, userId, 'imported from screenshot');
+        return bot.sendMessage(chatId, formatImportSummary(stats));
       }
 
-      return bot.sendMessage(chatId, formatImportSummary(totalStats));
+      // PDF
+      if (ext === '.pdf' || mime === 'application/pdf') {
+        const buffer = fs.readFileSync(tmpFile);
+        const result = await parsePdf(buffer, OPENROUTER_API_KEY);
+        if (result.transactions.length === 0) {
+          return bot.sendMessage(chatId, '⚠️ No transactions found in this PDF.' + (result.error ? '\n' + result.error : ''));
+        }
+        const stats = await processAndInsert(result.transactions, filename, account.id, userId, null);
+        return bot.sendMessage(chatId, formatImportSummary(stats));
+      }
+
+      // CSV
+      if (ext === '.csv' || mime === 'text/csv') {
+        const buffer = fs.readFileSync(tmpFile);
+        const result = parseCsv(buffer);
+        if (result.transactions.length === 0) {
+          return bot.sendMessage(chatId, '⚠️ No transactions found in this CSV.');
+        }
+        const stats = await processAndInsert(result.transactions, filename, account.id, userId, null);
+        return bot.sendMessage(chatId, formatImportSummary(stats));
+      }
+
+      // ZIP
+      if (ext === '.zip' || mime === 'application/zip') {
+        const zip = new AdmZip(tmpFile);
+        const entries = zip.getEntries();
+        let totalStats = { imported: 0, duplicates: 0, flagged: 0 };
+
+        for (const entry of entries) {
+          if (entry.isDirectory) continue;
+          const entryExt = path.extname(entry.entryName).toLowerCase();
+          const entryPath = path.join(os.tmpdir(), `moneyguy-zip-${Date.now()}-${path.basename(entry.entryName)}`);
+          try {
+            fs.writeFileSync(entryPath, entry.getData());
+            let result;
+            if (entryExt === '.pdf') result = await parsePdf(entry.getData(), OPENROUTER_API_KEY);
+            else if (entryExt === '.csv') result = parseCsv(entry.getData());
+            else continue;
+
+            if (result.transactions.length > 0) {
+              const stats = await processAndInsert(result.transactions, entry.entryName, account.id, userId, null);
+              totalStats.imported += stats.imported;
+              totalStats.duplicates += stats.duplicates;
+              totalStats.flagged += stats.flagged;
+            }
+          } finally {
+            fs.unlink(entryPath, () => {});
+          }
+        }
+
+        return bot.sendMessage(chatId, formatImportSummary(totalStats));
+      }
+
+      bot.sendMessage(chatId, `⚠️ Unsupported file type: ${ext || mime}. Send PDF, CSV, ZIP, or a screenshot.`);
+    } catch (err) {
+      bot.sendMessage(chatId, '❌ Error processing file: ' + err.message);
+    } finally {
+      if (tmpFile) fs.unlink(tmpFile, () => {});
     }
+  });
 
-    bot.sendMessage(chatId, `⚠️ Unsupported file type: ${ext || mime}. Send PDF, CSV, ZIP, or a screenshot.`);
-  } catch (err) {
-    bot.sendMessage(chatId, '❌ Error processing file: ' + err.message);
-  } finally {
-    if (tmpFile) fs.unlink(tmpFile, () => {});
-  }
-});
+  // Natural language — any other message
+  bot.on('message', async (msg) => {
+    if (msg.photo || msg.document) return;
+    if (!isAuthorized(msg)) return;
+    if (!msg.text || msg.text.startsWith('/')) return;
 
-// Natural language — any other message
-bot.on('message', async (msg) => {
-  if (msg.photo || msg.document) return; // handled above
-  if (!isAuthorized(msg)) return;
-  if (!msg.text || msg.text.startsWith('/')) return;
+    const chatId = msg.chat.id;
+    const question = msg.text.trim();
+    const wantsPDF = /\bas pdf\b|\bpdf\b/i.test(question);
+    const cleanQuestion = question.replace(/\bas pdf\b|\bpdf\b/gi, '').trim();
 
-  const chatId = msg.chat.id;
-  const question = msg.text.trim();
-  const wantsPDF = /\bas pdf\b|\bpdf\b/i.test(question);
-  const cleanQuestion = question.replace(/\bas pdf\b|\bpdf\b/gi, '').trim();
+    bot.sendChatAction(chatId, wantsPDF ? 'upload_document' : 'typing');
+    const thinkingMsg = await bot.sendMessage(chatId, '🤔 Thinking...');
 
-  bot.sendChatAction(chatId, wantsPDF ? 'upload_document' : 'typing');
-  const thinkingMsg = await bot.sendMessage(chatId, '🤔 Thinking...');
+    try {
+      const { sql, explanation } = await queryAI(cleanQuestion, OPENROUTER_API_KEY, userId);
+      const { rows, error } = executeQuery(sql);
+
+      if (error) {
+        return bot.editMessageText('❌ Query error: ' + error, {
+          chat_id: chatId, message_id: thinkingMsg.message_id
+        });
+      }
+
+      const summary = await summarizeResults(cleanQuestion, rows, sql, OPENROUTER_API_KEY);
+
+      if (wantsPDF) {
+        await bot.editMessageText('📄 Generating PDF with ' + rows.length + ' rows...', {
+          chat_id: chatId, message_id: thinkingMsg.message_id
+        });
+        const pdfPath = await generatePDF(cleanQuestion, rows, summary, sql);
+        await bot.sendDocument(chatId, pdfPath, { caption: summary });
+        fs.unlink(pdfPath, () => {});
+      } else {
+        const isTransactionList = rows.length > 0 && rows[0].transaction_date && rows.length > 1;
+
+        let reply = summary;
+        if (isTransactionList) {
+          reply += '\n\n' + formatRows(rows);
+          if (rows.length > 15) reply += '\n\n(' + rows.length + ' total — send "as pdf" for full list)';
+        }
+
+        bot.editMessageText(reply, {
+          chat_id: chatId,
+          message_id: thinkingMsg.message_id
+        });
+      }
+    } catch (err) {
+      bot.editMessageText('❌ Error: ' + err.message, {
+        chat_id: chatId, message_id: thinkingMsg.message_id
+      });
+    }
+  });
+}
+
+/**
+ * Start a single bot for a given user record.
+ */
+function startBotForUser(user) {
+  if (!user.telegram_bot_token) return;
+  if (activeBots.has(user.telegram_bot_token)) return; // already running
 
   try {
-    const { sql, explanation } = await queryAI(cleanQuestion, OPENROUTER_API_KEY);
-    const { rows, error } = executeQuery(sql);
-
-    if (error) {
-      return bot.editMessageText('❌ Query error: ' + error, {
-        chat_id: chatId, message_id: thinkingMsg.message_id
-      });
-    }
-
-    const summary = await summarizeResults(cleanQuestion, rows, sql, OPENROUTER_API_KEY);
-
-    if (wantsPDF) {
-      await bot.editMessageText('📄 Generating PDF with ' + rows.length + ' rows...', {
-        chat_id: chatId, message_id: thinkingMsg.message_id
-      });
-      const pdfPath = await generatePDF(cleanQuestion, rows, summary, sql);
-      await bot.sendDocument(chatId, pdfPath, { caption: summary });
-      fs.unlink(pdfPath, () => {});
-    } else {
-      // Only show raw rows for transaction lists, never for account/summary queries
-      const isTransactionList = rows.length > 0 && rows[0].transaction_date && rows.length > 1;
-
-      let reply = summary;
-      if (isTransactionList) {
-        reply += '\n\n' + formatRows(rows);
-        if (rows.length > 15) reply += '\n\n(' + rows.length + ' total — send "as pdf" for full list)';
-      }
-
-      bot.editMessageText(reply, {
-        chat_id: chatId,
-        message_id: thinkingMsg.message_id
-      });
-    }
+    const bot = new TelegramBot(user.telegram_bot_token, { polling: true });
+    activeBots.set(user.telegram_bot_token, bot);
+    registerBotHandlers(bot, user);
+    console.log(`🤖 Bot started for ${user.name} (user ${user.id})`);
   } catch (err) {
-    bot.editMessageText('❌ Error: ' + err.message, {
-      chat_id: chatId, message_id: thinkingMsg.message_id
-    });
+    console.error(`Failed to start bot for ${user.name}:`, err.message);
   }
-});
+}
+
+/**
+ * Start bots for all users that have a telegram_bot_token.
+ */
+function startAll() {
+  const users = db.prepare('SELECT id, name, emoji, telegram_bot_token, telegram_user_id FROM users WHERE telegram_bot_token IS NOT NULL').all();
+  if (users.length === 0) {
+    console.log('No Telegram bots configured. Add bot tokens via /api/users.');
+    return;
+  }
+  for (const user of users) {
+    startBotForUser(user);
+  }
+}
+
+module.exports = { startAll, startBotForUser };

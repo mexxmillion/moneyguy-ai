@@ -5,10 +5,10 @@ const db = require('../db');
 
 const router = express.Router();
 
-function getFilteredTransactions(query) {
+function getFilteredTransactions(query, userId) {
   const { category, merchant, search, date_from, date_to, amount_min, amount_max, account_id } = query;
-  const conditions = [];
-  const params = [];
+  const conditions = ['t.user_id = ?'];
+  const params = [userId];
 
   if (category) { conditions.push('t.category = ?'); params.push(category); }
   if (merchant) { conditions.push('t.merchant_name LIKE ?'); params.push(`%${merchant}%`); }
@@ -30,7 +30,7 @@ function getFilteredTransactions(query) {
 }
 
 router.get('/csv', (req, res) => {
-  const rows = getFilteredTransactions(req.query);
+  const rows = getFilteredTransactions(req.query, req.userId);
 
   const data = rows.map(r => ({
     Date: r.transaction_date,
@@ -51,7 +51,7 @@ router.get('/csv', (req, res) => {
 });
 
 router.get('/pdf', (req, res) => {
-  const rows = getFilteredTransactions(req.query);
+  const rows = getFilteredTransactions(req.query, req.userId);
 
   const doc = new PDFDocument({ margin: 40, size: 'LETTER', layout: 'landscape' });
   res.setHeader('Content-Type', 'application/pdf');

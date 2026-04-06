@@ -15,18 +15,18 @@ router.get('/', (req, res) => {
   const budgets = db.prepare(`
     SELECT id, category, monthly_limit, is_active
     FROM budgets
-    WHERE is_active = 1
+    WHERE is_active = 1 AND user_id = ?
     ORDER BY category
-  `).all();
+  `).all(req.userId);
 
   // Actual spending per category for the month (positive amounts = spending)
   const spendingRows = db.prepare(`
     SELECT category, SUM(amount) AS total
     FROM transactions
-    WHERE transaction_date LIKE ? || '-%'
+    WHERE user_id = ? AND transaction_date LIKE ? || '-%'
       AND amount > 0
     GROUP BY category
-  `).all(prefix);
+  `).all(req.userId, prefix);
 
   const spendingMap = new Map(spendingRows.map(r => [r.category, r.total || 0]));
 
@@ -34,13 +34,13 @@ router.get('/', (req, res) => {
   const allSpendingRows = db.prepare(`
     SELECT category, SUM(amount) AS total
     FROM transactions
-    WHERE transaction_date LIKE ? || '-%'
+    WHERE user_id = ? AND transaction_date LIKE ? || '-%'
       AND amount > 0
       AND category IS NOT NULL
       AND category != ''
     GROUP BY category
     ORDER BY total DESC
-  `).all(prefix);
+  `).all(req.userId, prefix);
 
   const budgetCategories = new Set(budgets.map(b => b.category));
   const unbudgeted = allSpendingRows
@@ -89,10 +89,10 @@ router.post('/', (req, res) => {
   }
 
   db.prepare(`
-    INSERT INTO budgets (category, monthly_limit)
-    VALUES (?, ?)
-    ON CONFLICT(category) DO UPDATE SET monthly_limit = excluded.monthly_limit, is_active = 1
-  `).run(category, limit);
+    INSERT INTO budgets (user_id, category, monthly_limit)
+    VALUES (?, ?, ?)
+    ON CONFLICT(user_id, category) DO UPDATE SET monthly_limit = excluded.monthly_limit, is_active = 1
+  `).run(req.userId, category, limit);
 
   res.json({ ok: true });
 });

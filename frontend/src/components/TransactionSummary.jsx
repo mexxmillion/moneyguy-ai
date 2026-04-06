@@ -1,3 +1,4 @@
+import { apiFetch } from '../UserContext';
 import { useEffect, useState } from 'react';
 
 // Safe formatter — handles both cents (int > 100) and dollar values
@@ -25,7 +26,7 @@ export default function TransactionSummary({ filters }) {
     if (filters && typeof filters === 'object') {
       Object.entries(filters).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') params.set(k, v); });
     }
-    fetch(`/api/transactions/summary?${params}`)
+    apiFetch(`/api/transactions/summary?${params}`)
       .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
       .then(d => { setData(d); setLoading(false); })
       .catch(e => { setError(e.message); setLoading(false); });

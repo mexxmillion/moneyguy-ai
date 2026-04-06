@@ -12,7 +12,7 @@ router.post('/query', async (req, res) => {
     if (!apiKey) return res.status(500).json({ error: 'OpenRouter API key not configured' });
 
     // Step 1: AI generates SQL
-    const { sql, explanation } = await queryAI(question, apiKey);
+    const { sql, explanation } = await queryAI(question, apiKey, req.userId);
 
     // Step 2: Execute query
     const { rows, error } = executeQuery(sql);

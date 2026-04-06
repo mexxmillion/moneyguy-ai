@@ -1,3 +1,4 @@
+import { apiFetch } from '../UserContext';
 import { useEffect, useMemo, useState } from 'react';
 
 // Type → icon + colors (Mint-inspired)
@@ -29,7 +30,7 @@ export default function Accounts({ onOpenTransactions }) {
   const [expanded, setExpanded] = useState({});
 
   useEffect(() => {
-    fetch('/api/accounts').then(r => r.json()).then(payload => {
+    apiFetch('/api/accounts').then(r => r.json()).then(payload => {
       setData(payload);
       const initial = {};
       for (const group of payload.groups || []) initial[group.key] = true;

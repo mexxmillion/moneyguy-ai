@@ -10,8 +10,8 @@ router.get('/', (req, res) => {
     amount_min, amount_max, account_id,
   } = req.query;
 
-  const conditions = [];
-  const params = [];
+  const conditions = ['t.user_id = ?'];
+  const params = [req.userId];
 
   if (category) { conditions.push('t.category = ?'); params.push(category); }
   if (merchant) { conditions.push('t.merchant_name LIKE ?'); params.push(`%${merchant}%`); }
@@ -22,7 +22,7 @@ router.get('/', (req, res) => {
   if (amount_max) { conditions.push('t.amount <= ?'); params.push(Math.round(parseFloat(amount_max) * 100)); }
   if (account_id) { conditions.push('t.account_id = ?'); params.push(parseInt(account_id)); }
 
-  const where = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
+  const where = 'WHERE ' + conditions.join(' AND ');
 
   const allowedSorts = ['transaction_date', 'amount', 'merchant_name', 'category', 'created_at'];
   const sortCol = allowedSorts.includes(sort) ? sort : 'transaction_date';
@@ -89,9 +89,9 @@ router.get('/filters', (req, res) => {
   const accounts = db.prepare(`
     SELECT id, name, institution, type
     FROM accounts
-    WHERE is_active = 1
+    WHERE is_active = 1 AND user_id = ?
     ORDER BY COALESCE(institution, ''), name
-  `).all();
+  `).all(req.userId);
 
   res.json({
     accounts: accounts.map(account => ({
@@ -105,63 +105,65 @@ router.get('/filters', (req, res) => {
 // Dashboard stats
 router.get('/stats', (req, res) => {
   const { month, year } = req.query;
-  let dateFilter = '';
-  const params = [];
+  const conditions = ['t.user_id = ?'];
+  const params = [req.userId];
 
   if (month && year) {
-    dateFilter = "WHERE t.transaction_date LIKE ?";
+    conditions.push("t.transaction_date LIKE ?");
     params.push(`${year}-${month.padStart(2, '0')}%`);
   }
+
+  const baseWhere = 'WHERE ' + conditions.join(' AND ');
 
   // Spending by category
   const byCategory = db.prepare(`
     SELECT category, SUM(amount) as total, COUNT(*) as count
-    FROM transactions t ${dateFilter}
-    ${dateFilter ? 'AND' : 'WHERE'} category NOT IN ('Payments','Transfers','Ignore')
+    FROM transactions t ${baseWhere}
+    AND category NOT IN ('Payments','Transfers','Ignore')
     GROUP BY category ORDER BY total DESC
   `).all(...params);
 
   // Top merchants
   const topMerchants = db.prepare(`
     SELECT merchant_name, SUM(amount) as total, COUNT(*) as count
-    FROM transactions t ${dateFilter}
-    ${dateFilter ? 'AND' : 'WHERE'} category NOT IN ('Payments','Transfers','Ignore')
+    FROM transactions t ${baseWhere}
+    AND category NOT IN ('Payments','Transfers','Ignore')
     GROUP BY merchant_name ORDER BY total DESC LIMIT 10
   `).all(...params);
 
   // Daily spending
   const dailySpending = db.prepare(`
     SELECT transaction_date, SUM(amount) as total
-    FROM transactions t ${dateFilter}
-    ${dateFilter ? 'AND' : 'WHERE'} category NOT IN ('Payments','Transfers','Ignore')
+    FROM transactions t ${baseWhere}
+    AND category NOT IN ('Payments','Transfers','Ignore')
     GROUP BY transaction_date ORDER BY transaction_date
   `).all(...params);
 
   // Quick stats
   const totalSpent = db.prepare(`
-    SELECT COALESCE(SUM(amount), 0) as total FROM transactions t ${dateFilter}
-    ${dateFilter ? 'AND' : 'WHERE'} category NOT IN ('Payments','Transfers','Ignore') AND amount > 0
+    SELECT COALESCE(SUM(amount), 0) as total FROM transactions t ${baseWhere}
+    AND category NOT IN ('Payments','Transfers','Ignore') AND amount > 0
   `).get(...params);
 
   const totalPaid = db.prepare(`
     SELECT COALESCE(SUM(ABS(amount)), 0) as total FROM transactions t
-    ${dateFilter ? dateFilter + ' AND' : 'WHERE'} category = 'Payments'
+    ${baseWhere} AND category = 'Payments'
   `).get(...params);
 
   const biggest = db.prepare(`
-    SELECT * FROM transactions t ${dateFilter}
-    ${dateFilter ? 'AND' : 'WHERE'} category NOT IN ('Payments','Transfers','Ignore')
+    SELECT * FROM transactions t ${baseWhere}
+    AND category NOT IN ('Payments','Transfers','Ignore')
     ORDER BY amount DESC LIMIT 1
   `).get(...params);
 
   const mostVisited = db.prepare(`
-    SELECT merchant_name, COUNT(*) as visits FROM transactions t ${dateFilter}
-    ${dateFilter ? 'AND' : 'WHERE'} category NOT IN ('Payments','Transfers','Ignore')
+    SELECT merchant_name, COUNT(*) as visits FROM transactions t ${baseWhere}
+    AND category NOT IN ('Payments','Transfers','Ignore')
     GROUP BY merchant_name ORDER BY visits DESC LIMIT 1
   `).get(...params);
 
   const totalTransactions = db.prepare(`
-    SELECT COUNT(*) as count FROM transactions t ${dateFilter}
+    SELECT COUNT(*) as count FROM transactions t ${baseWhere}
   `).get(...params);
 
   res.json({
@@ -183,8 +185,8 @@ router.get('/summary', (req, res) => {
     amount_min, amount_max, account_id,
   } = req.query;
 
-  const conditions = [];
-  const params = [];
+  const conditions = ['t.user_id = ?'];
+  const params = [req.userId];
 
   if (category) { conditions.push('t.category = ?'); params.push(category); }
   if (merchant) { conditions.push('t.merchant_name LIKE ?'); params.push(`%${merchant}%`); }
@@ -300,9 +302,9 @@ router.post('/ai-categorize', async (req, res) => {
   const { ids } = req.body;
 
   const where = ids && ids.length > 0
-    ? `WHERE id IN (${ids.map(() => '?').join(',')}) AND category = 'Uncategorized'`
-    : `WHERE category = 'Uncategorized'`;
-  const params = ids && ids.length > 0 ? ids : [];
+    ? `WHERE user_id = ? AND id IN (${ids.map(() => '?').join(',')}) AND category = 'Uncategorized'`
+    : `WHERE user_id = ? AND category = 'Uncategorized'`;
+  const params = ids && ids.length > 0 ? [req.userId, ...ids] : [req.userId];
 
   const rows = db.prepare(`SELECT id, merchant_name, description, amount FROM transactions ${where}`).all(...params);
   if (rows.length === 0) return res.json({ updated: 0, results: [] });
@@ -358,8 +360,8 @@ ${txLines}`;
 router.get('/trends', (req, res) => {
   const { date_from, date_to, account_id, category, group_by = 'day' } = req.query;
 
-  const conditions = [];
-  const params = [];
+  const conditions = ['t.user_id = ?'];
+  const params = [req.userId];
 
   if (date_from) { conditions.push('t.transaction_date >= ?'); params.push(date_from); }
   if (date_to)   { conditions.push('t.transaction_date <= ?'); params.push(date_to); }
@@ -440,9 +442,9 @@ router.get('/review', (req, res) => {
     SELECT t.*, a.name as account_name, a.institution
     FROM transactions t
     LEFT JOIN accounts a ON a.id = t.account_id
-    WHERE t.needs_review = 1
+    WHERE t.needs_review = 1 AND t.user_id = ?
     ORDER BY t.transaction_date DESC
-  `).all();
+  `).all(req.userId);
   res.json({ transactions: rows, count: rows.length });
 });
 

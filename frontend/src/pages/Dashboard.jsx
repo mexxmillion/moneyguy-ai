@@ -1,3 +1,4 @@
+import { apiFetch } from '../UserContext';
 import { useState, useEffect } from 'react';
 import { SpendingDonut, DailySpendingChart, COLORS } from '../components/ChartWidget';
 import CategoryBadge from '../components/CategoryBadge';
@@ -27,22 +28,22 @@ export default function Dashboard({ onOpenAccounts, onOpenTransactions }) {
   });
 
   useEffect(() => {
-    fetch(`/api/transactions/stats?month=${month.month}&year=${month.year}`)
+    apiFetch(`/api/transactions/stats?month=${month.month}&year=${month.year}`)
       .then(r => r.json()).then(d => {
         // If no data this month, try last month automatically
         if (d.totalTransactions === 0) {
           const d2 = new Date(parseInt(month.year), parseInt(month.month) - 2, 1);
           const lastMonth = { month: String(d2.getMonth() + 1), year: String(d2.getFullYear()) };
-          fetch(`/api/transactions/stats?month=${lastMonth.month}&year=${lastMonth.year}`)
+          apiFetch(`/api/transactions/stats?month=${lastMonth.month}&year=${lastMonth.year}`)
             .then(r => r.json()).then(d3 => {
               if (d3.totalTransactions > 0) setMonth(lastMonth);
             });
         }
         setStats(d);
       });
-    fetch('/api/accounts').then(r => r.json()).then(setAccountsData);
-    fetch(`/api/budgets?month=${month.month}&year=${month.year}`).then(r => r.json()).then(setBudgetData);
-    fetch('/api/transactions?limit=8&sort=transaction_date&order=DESC')
+    apiFetch('/api/accounts').then(r => r.json()).then(setAccountsData);
+    apiFetch(`/api/budgets?month=${month.month}&year=${month.year}`).then(r => r.json()).then(setBudgetData);
+    apiFetch('/api/transactions?limit=8&sort=transaction_date&order=DESC')
       .then(r => r.json()).then(d => setRecent(d.transactions));
   }, [month]);
 

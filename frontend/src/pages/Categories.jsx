@@ -1,3 +1,4 @@
+import { apiFetch } from '../UserContext';
 import { useState, useEffect, useCallback } from 'react';
 import CategoryBadge from '../components/CategoryBadge';
 
@@ -10,12 +11,12 @@ export default function Categories() {
   const [newRule, setNewRule] = useState({ merchant_pattern: '', category_id: '' });
 
   useEffect(() => {
-    fetch('/api/transactions/categories').then(r => r.json()).then(setCategories);
-    fetch('/api/transactions/merchant-rules').then(r => r.json()).then(setRules);
+    apiFetch('/api/transactions/categories').then(r => r.json()).then(setCategories);
+    apiFetch('/api/transactions/merchant-rules').then(r => r.json()).then(setRules);
   }, []);
 
   const loadTransactions = useCallback(() => {
-    fetch(`/api/transactions?page=${page}&limit=30&sort=transaction_date&order=DESC`)
+    apiFetch(`/api/transactions?page=${page}&limit=30&sort=transaction_date&order=DESC`)
       .then(r => r.json())
       .then(data => {
         setTransactions(data.transactions);
@@ -26,7 +27,7 @@ export default function Categories() {
   useEffect(() => { loadTransactions(); }, [loadTransactions]);
 
   const updateCategory = async (id, category) => {
-    await fetch(`/api/transactions/${id}`, {
+    await apiFetch(`/api/transactions/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ category, is_reviewed: true }),
@@ -36,13 +37,13 @@ export default function Categories() {
 
   const addRule = async () => {
     if (!newRule.merchant_pattern || !newRule.category_id) return;
-    await fetch('/api/transactions/merchant-rules', {
+    await apiFetch('/api/transactions/merchant-rules', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...newRule, priority: 10 }),
     });
     setNewRule({ merchant_pattern: '', category_id: '' });
-    fetch('/api/transactions/merchant-rules').then(r => r.json()).then(setRules);
+    apiFetch('/api/transactions/merchant-rules').then(r => r.json()).then(setRules);
   };
 
   const findMatchingRule = (desc) => {

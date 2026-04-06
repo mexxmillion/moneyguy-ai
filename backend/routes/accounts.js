@@ -45,7 +45,7 @@ router.get('/', (req, res) => {
       ORDER BY COALESCE(s2.period_end, s2.imported_at) DESC, s2.id DESC
       LIMIT 1
     )
-    WHERE a.is_active = 1
+    WHERE a.is_active = 1 AND a.user_id = ?
     ORDER BY
       CASE a.type
         WHEN 'debit' THEN 1
@@ -56,7 +56,7 @@ router.get('/', (req, res) => {
       END,
       COALESCE(a.institution, ''),
       a.name
-  `).all();
+  `).all(req.userId);
 
   const groups = [];
   const byKey = new Map();
@@ -126,9 +126,9 @@ router.get('/list', (req, res) => {
   const rows = db.prepare(`
     SELECT id, name, institution, type
     FROM accounts
-    WHERE is_active = 1
+    WHERE is_active = 1 AND user_id = ?
     ORDER BY COALESCE(institution, ''), name
-  `).all();
+  `).all(req.userId);
 
   res.json(rows.map(row => ({
     id: row.id,
@@ -156,8 +156,8 @@ router.get('/:id', (req, res) => {
       ORDER BY COALESCE(s2.period_end, s2.imported_at) DESC, s2.id DESC
       LIMIT 1
     )
-    WHERE a.id = ?
-  `).get(id);
+    WHERE a.id = ? AND a.user_id = ?
+  `).get(id, req.userId);
 
   if (!account) return res.status(404).json({ error: 'Account not found' });
 

@@ -10,6 +10,7 @@ import Budgets from './pages/Budgets';
 import Trends from './pages/Trends';
 import Review from './pages/Review';
 import ErrorBoundary from './components/ErrorBoundary';
+import { UserProvider, useUser, apiFetch } from './UserContext';
 
 const tabs = [
   { id: 'dashboard', label: 'Overview', icon: '📊' },
@@ -25,13 +26,22 @@ const tabs = [
 ];
 
 export default function App() {
+  return (
+    <UserProvider>
+      <AppInner />
+    </UserProvider>
+  );
+}
+
+function AppInner() {
+  const { userId, user, users, setUserId } = useUser();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [transactionsFilters, setTransactionsFilters] = useState({});
   const [reviewCount, setReviewCount] = useState(0);
 
-  // Load review count on mount
+  // Load review count on mount / user switch
   useState(() => {
-    fetch('/api/transactions/review').then(r => r.json()).then(d => setReviewCount(d.count || 0)).catch(() => {});
+    apiFetch('/api/transactions/review').then(r => r.json()).then(d => setReviewCount(d.count || 0)).catch(() => {});
   });
 
   const openTransactions = (accountId) => {
@@ -43,7 +53,26 @@ export default function App() {
     <div className="min-h-screen bg-gray-950">
       {/* Header */}
       <header className="bg-gray-900 border-b border-gray-800 px-6 py-3 flex items-center justify-between">
-        <h1 className="text-xl font-bold text-emerald-400">MoneyGuy 2.0</h1>
+        <div className="flex items-center gap-4">
+          <h1 className="text-xl font-bold text-emerald-400">MoneyGuy 2.0</h1>
+          {users.length > 1 && (
+            <div className="flex gap-1">
+              {users.map(u => (
+                <button
+                  key={u.id}
+                  onClick={() => { setUserId(u.id); window.location.reload(); }}
+                  className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                    userId === u.id
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700'
+                  }`}
+                >
+                  {u.emoji} {u.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <nav className="flex gap-1">
           {tabs.map(tab => (
             <button

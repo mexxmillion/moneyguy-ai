@@ -1,3 +1,4 @@
+import { apiFetch } from '../UserContext';
 import { useState, useEffect, useCallback } from 'react';
 import TransactionTable from '../components/TransactionTable';
 import SearchBar from '../components/SearchBar';
@@ -19,8 +20,8 @@ export default function Transactions({ initialFilters = {} }) {
   const [aiResult, setAiResult] = useState(null);
 
   useEffect(() => {
-    fetch('/api/transactions/categories').then(r => r.json()).then(setCategories);
-    fetch('/api/transactions/filters').then(r => r.json()).then(data => setAccounts(data.accounts || []));
+    apiFetch('/api/transactions/categories').then(r => r.json()).then(setCategories);
+    apiFetch('/api/transactions/filters').then(r => r.json()).then(data => setAccounts(data.accounts || []));
   }, []);
 
   useEffect(() => {
@@ -34,7 +35,7 @@ export default function Transactions({ initialFilters = {} }) {
     for (const [k, v] of params.entries()) {
       if (!v) params.delete(k);
     }
-    fetch(`/api/transactions?${params}`)
+    apiFetch(`/api/transactions?${params}`)
       .then(r => r.json())
       .then(data => {
         setTransactions(data.transactions);
@@ -49,7 +50,7 @@ export default function Transactions({ initialFilters = {} }) {
     setAiLoading(true);
     setAiResult(null);
     try {
-      const r = await fetch('/api/transactions/ai-categorize', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+      const r = await apiFetch('/api/transactions/ai-categorize', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
       const d = await r.json();
       setAiResult(d.updated);
       loadTransactions();
@@ -65,7 +66,7 @@ export default function Transactions({ initialFilters = {} }) {
   };
 
   const handleUpdate = async (id, values) => {
-    await fetch(`/api/transactions/${id}`, {
+    await apiFetch(`/api/transactions/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(values),
@@ -84,7 +85,7 @@ export default function Transactions({ initialFilters = {} }) {
 
   const handleBulkCategorize = async () => {
     if (selectedIds.size === 0 || !bulkCategory) return;
-    await fetch('/api/transactions/bulk-categorize', {
+    await apiFetch('/api/transactions/bulk-categorize', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ids: [...selectedIds], category: bulkCategory }),

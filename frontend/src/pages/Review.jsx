@@ -1,3 +1,4 @@
+import { apiFetch } from '../UserContext';
 import { useState, useEffect } from 'react';
 import CategoryBadge from '../components/CategoryBadge';
 
@@ -14,7 +15,7 @@ export default function Review({ onBadgeCount }) {
 
   const load = () => {
     setLoading(true);
-    fetch('/api/transactions/review')
+    apiFetch('/api/transactions/review')
       .then(r => r.json())
       .then(d => {
         setItems(d.transactions || []);
@@ -25,24 +26,24 @@ export default function Review({ onBadgeCount }) {
 
   useEffect(() => {
     load();
-    fetch('/api/transactions/categories').then(r => r.json()).then(setCategories);
+    apiFetch('/api/transactions/categories').then(r => r.json()).then(setCategories);
   }, []);
 
   const dismiss = async (id) => {
-    await fetch(`/api/transactions/review/${id}/dismiss`, { method: 'POST' });
+    await apiFetch(`/api/transactions/review/${id}/dismiss`, { method: 'POST' });
     setItems(prev => prev.filter(t => t.id !== id));
     onBadgeCount?.(items.length - 1);
   };
 
   const deleteTx = async (id) => {
     if (!confirm('Delete this transaction?')) return;
-    await fetch(`/api/transactions/review/${id}/delete`, { method: 'POST' });
+    await apiFetch(`/api/transactions/review/${id}/delete`, { method: 'POST' });
     setItems(prev => prev.filter(t => t.id !== id));
     onBadgeCount?.(items.length - 1);
   };
 
   const recategorize = async (id, category) => {
-    await fetch(`/api/transactions/${id}`, {
+    await apiFetch(`/api/transactions/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ category }),
@@ -51,7 +52,7 @@ export default function Review({ onBadgeCount }) {
   };
 
   const dismissAll = async () => {
-    await Promise.all(items.map(t => fetch(`/api/transactions/review/${t.id}/dismiss`, { method: 'POST' })));
+    await Promise.all(items.map(t => apiFetch(`/api/transactions/review/${t.id}/dismiss`, { method: 'POST' })));
     setItems([]);
     onBadgeCount?.(0);
   };

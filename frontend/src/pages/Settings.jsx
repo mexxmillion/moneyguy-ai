@@ -1,3 +1,4 @@
+import { apiFetch } from '../UserContext';
 import { useState, useEffect } from 'react';
 
 export default function Settings() {
@@ -9,14 +10,14 @@ export default function Settings() {
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   useEffect(() => {
-    fetch('/api/admin/stats').then(r => r.json()).then(setStats);
+    apiFetch('/api/admin/stats').then(r => r.json()).then(setStats);
   }, []);
 
   async function handleReset() {
     setLoading(true);
     setStatus(null);
     try {
-      const res = await fetch('/api/admin/reset', {
+      const res = await apiFetch('/api/admin/reset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pin, scope })
@@ -29,7 +30,7 @@ export default function Settings() {
         setPin('');
         setConfirmOpen(false);
         // Refresh stats
-        fetch('/api/admin/stats').then(r => r.json()).then(setStats);
+        apiFetch('/api/admin/stats').then(r => r.json()).then(setStats);
       }
     } catch (err) {
       setStatus({ type: 'error', message: err.message });

@@ -29,7 +29,7 @@ const upload = multer({ storage, limits: { fileSize: 50 * 1024 * 1024 } });
 
 const IMAGE_EXTS = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
 
-async function processFile(filepath, originalname, importedBy = 'web') {
+async function processFile(filepath, originalname, importedBy = 'web', userId = 1) {
   const ext = path.extname(originalname).toLowerCase();
   const buffer = fs.readFileSync(filepath);
   const apiKey = process.env.OPENROUTER_API_KEY;
@@ -101,8 +101,8 @@ async function processFile(filepath, originalname, importedBy = 'web') {
 
   if (metadata && metadata.account_number_last4 && metadata.institution) {
     const existingAccount = db.prepare(
-      'SELECT id, name, credit_limit FROM accounts WHERE account_number_last4 = ? AND institution = ?'
-    ).get(metadata.account_number_last4, metadata.institution);
+      'SELECT id, name, credit_limit FROM accounts WHERE account_number_last4 = ? AND institution = ? AND user_id = ?'
+    ).get(metadata.account_number_last4, metadata.institution, userId);
 
     if (existingAccount) {
       accountId = existingAccount.id;
@@ -124,17 +124,17 @@ async function processFile(filepath, originalname, importedBy = 'web') {
       const currency = metadata.currency || 'CAD';
       const name = metadata.institution + (cardType ? ` ${cardType}` : '') + ` ...${metadata.account_number_last4}`;
       const r = db.prepare(
-        'INSERT INTO accounts (name, institution, type, currency, account_number_last4, card_type, credit_limit) VALUES (?, ?, ?, ?, ?, ?, ?)'
-      ).run(name, metadata.institution, accType, currency, metadata.account_number_last4, cardType, metadata.credit_limit || null);
+        'INSERT INTO accounts (user_id, name, institution, type, currency, account_number_last4, card_type, credit_limit) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+      ).run(userId, name, metadata.institution, accType, currency, metadata.account_number_last4, cardType, metadata.credit_limit || null);
       accountId = r.lastInsertRowid;
       accountName = name;
       isNewAccount = true;
     }
   } else {
-    // Fallback: use or create default account
-    let account = db.prepare('SELECT id, name FROM accounts LIMIT 1').get();
+    // Fallback: use or create default account for this user
+    let account = db.prepare('SELECT id, name FROM accounts WHERE user_id = ? LIMIT 1').get(userId);
     if (!account) {
-      const r = db.prepare("INSERT INTO accounts (name, institution, type) VALUES ('Default Account', 'Unknown', 'credit')").run();
+      const r = db.prepare("INSERT INTO accounts (user_id, name, institution, type) VALUES (?, 'Default Account', 'Unknown', 'credit')").run(userId);
       account = { id: r.lastInsertRowid, name: 'Default Account' };
       isNewAccount = true;
     }
@@ -172,13 +172,13 @@ async function processFile(filepath, originalname, importedBy = 'web') {
 
   // Insert statement with full metadata
   const stmt = db.prepare(`
-    INSERT INTO statements (account_id, filename, period_start, period_end, opening_balance, closing_balance,
+    INSERT INTO statements (user_id, account_id, filename, period_start, period_end, opening_balance, closing_balance,
       total_debits, total_credits, minimum_payment, payment_due_date, credit_limit, available_credit,
       source_file_path, source_file_hash, imported_by, raw_text)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   const stmtResult = stmt.run(
-    accountId, originalname,
+    userId, accountId, originalname,
     metadata?.statement_period_start || null, metadata?.statement_period_end || null,
     metadata?.opening_balance || null, metadata?.closing_balance || null,
     metadata?.total_debits || null, metadata?.total_credits || null,
@@ -191,8 +191,8 @@ async function processFile(filepath, originalname, importedBy = 'web') {
 
   // Insert transactions
   const insertTx = db.prepare(`
-    INSERT INTO transactions (statement_id, account_id, transaction_date, posting_date, description, merchant_name, amount, currency, category, notes, needs_review)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO transactions (user_id, statement_id, account_id, transaction_date, posting_date, description, merchant_name, amount, currency, category, notes, needs_review)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const flaggedIds = new Set(flagged.map(f => `${f.transaction_date}|${f.amount}|${f.merchant_name}`));
@@ -202,7 +202,7 @@ async function processFile(filepath, originalname, importedBy = 'web') {
       const key = `${t.transaction_date}|${t.amount}|${t.merchant_name}`;
       const needsReview = flaggedIds.has(key) ? 1 : 0;
       insertTx.run(
-        statementId, accountId, t.transaction_date, t.posting_date,
+        userId, statementId, accountId, t.transaction_date, t.posting_date,
         t.description, t.merchant_name, t.amount, t.currency, t.category, t.notes || null, needsReview
       );
     }
@@ -235,6 +235,7 @@ router.post('/', upload.array('files', 20), async (req, res) => {
     }
 
     const importedBy = req.body.imported_by || 'web';
+    const userId = req.userId;
     const results = [];
     const tempDir = path.join(__dirname, '..', 'temp');
 
@@ -257,7 +258,7 @@ router.post('/', upload.array('files', 20), async (req, res) => {
             if (!fs.existsSync(extractDir)) fs.mkdirSync(extractDir, { recursive: true });
             fs.writeFileSync(extractPath, entry.getData());
 
-            const r = await processFile(extractPath, entry.entryName, importedBy);
+            const r = await processFile(extractPath, entry.entryName, importedBy, userId);
             results.push({ filename: entry.entryName, ...r });
 
             fs.unlinkSync(extractPath);
@@ -266,7 +267,7 @@ router.post('/', upload.array('files', 20), async (req, res) => {
           if (fs.existsSync(tempDir)) fs.rmSync(tempDir, { recursive: true, force: true });
         }
       } else {
-        const r = await processFile(file.path, file.originalname, importedBy);
+        const r = await processFile(file.path, file.originalname, importedBy, userId);
         results.push({ filename: file.originalname, ...r });
       }
     }
@@ -284,15 +285,15 @@ router.post('/', upload.array('files', 20), async (req, res) => {
 
 // Get accounts
 router.get('/accounts', (req, res) => {
-  const accounts = db.prepare('SELECT * FROM accounts').all();
+  const accounts = db.prepare('SELECT * FROM accounts WHERE user_id = ?').all(req.userId);
   res.json(accounts);
 });
 
 // Create account
 router.post('/accounts', (req, res) => {
   const { name, institution, type, currency } = req.body;
-  const r = db.prepare('INSERT INTO accounts (name, institution, type, currency) VALUES (?, ?, ?, ?)').run(
-    name, institution || null, type || 'credit', currency || 'CAD'
+  const r = db.prepare('INSERT INTO accounts (user_id, name, institution, type, currency) VALUES (?, ?, ?, ?, ?)').run(
+    req.userId, name, institution || null, type || 'credit', currency || 'CAD'
   );
   res.json({ id: r.lastInsertRowid });
 });

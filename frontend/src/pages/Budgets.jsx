@@ -1,3 +1,4 @@
+import { apiFetch } from '../UserContext';
 import { useEffect, useState, useCallback } from 'react';
 
 const STATUS_BAR = {
@@ -30,14 +31,14 @@ export default function Budgets() {
   const [categories, setCategories] = useState([]);
 
   const load = useCallback(() => {
-    fetch(`/api/budgets?month=${month.month}&year=${month.year}`)
+    apiFetch(`/api/budgets?month=${month.month}&year=${month.year}`)
       .then(r => r.json()).then(setData);
   }, [month]);
 
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
-    fetch('/api/categories').then(r => r.json()).then(d => {
+    apiFetch('/api/categories').then(r => r.json()).then(d => {
       setCategories((d.categories || d || []).map(c => c.name || c));
     }).catch(() => {});
   }, []);
@@ -46,7 +47,7 @@ export default function Budgets() {
     const limitCents = Math.round(parseFloat(addForm.limit) * 100);
     if (!addForm.category || isNaN(limitCents) || limitCents <= 0) return;
     setSaving(true);
-    await fetch('/api/budgets', {
+    await apiFetch('/api/budgets', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ category: addForm.category, monthly_limit: limitCents }),
@@ -58,7 +59,7 @@ export default function Budgets() {
   };
 
   const handleDelete = async (id) => {
-    await fetch(`/api/budgets/${id}`, { method: 'DELETE' });
+    await apiFetch(`/api/budgets/${id}`, { method: 'DELETE' });
     load();
   };
 
