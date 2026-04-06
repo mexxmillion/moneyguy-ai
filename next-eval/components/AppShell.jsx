@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { navItems } from '@/lib/nav';
 import MaterialSymbols from '@/components/MaterialSymbols';
@@ -19,17 +18,16 @@ export default function AppShell({ title, subtitle, children, actions }) {
           {navItems.map((item) => {
             const active = pathname === item.href;
             return (
-              <Link
+              <a
                 key={item.href}
                 href={item.href}
-                prefetch={false}
                 className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all ${
                   active ? 'bg-white text-[var(--primary)] shadow-sm' : 'text-[var(--muted)] hover:bg-[var(--surface-muted)]'
                 }`}
               >
                 <MaterialSymbols className="text-[20px]">{item.icon}</MaterialSymbols>
                 <span>{item.label}</span>
-              </Link>
+              </a>
             );
           })}
         </nav>
