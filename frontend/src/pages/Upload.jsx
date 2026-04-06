@@ -22,6 +22,7 @@ export default function Upload() {
       setResults({ error: err.message });
     } finally {
       setUploading(false);
+      if (fileRef.current) fileRef.current.value = ''; // reset so same file can be re-uploaded
     }
   };
 

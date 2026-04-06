@@ -88,8 +88,10 @@ async function processFile(filepath, originalname, importedBy = 'web') {
 
   // Extract statement metadata (account info, balances, period)
   let metadata = null;
-  if (apiKey && result.rawText) {
-    metadata = await extractStatementMetadata(result.rawText, apiKey);
+  if (apiKey) {
+    // Use raw text if available, otherwise use first transaction descriptions as hints
+    const textForMeta = result.rawText || result.transactions.map(t => t.description).join(' ');
+    metadata = await extractStatementMetadata(textForMeta, apiKey);
   }
 
   // Find or create account based on metadata
@@ -105,10 +107,17 @@ async function processFile(filepath, originalname, importedBy = 'web') {
     if (existingAccount) {
       accountId = existingAccount.id;
       accountName = existingAccount.name;
-      // Update credit limit if changed
-      if (metadata.credit_limit && metadata.credit_limit !== existingAccount.credit_limit) {
-        db.prepare('UPDATE accounts SET credit_limit = ? WHERE id = ?').run(metadata.credit_limit, accountId);
-      }
+      // Update any missing/changed fields
+      db.prepare(`UPDATE accounts SET 
+        credit_limit = COALESCE(?, credit_limit),
+        card_type = COALESCE(?, card_type),
+        account_number_last4 = COALESCE(?, account_number_last4)
+        WHERE id = ?`).run(
+        metadata.credit_limit || null,
+        metadata.card_type || null,
+        metadata.account_number_last4 || null,
+        accountId
+      );
     } else {
       const cardType = metadata.card_type || null;
       const accType = metadata.account_type || 'credit';

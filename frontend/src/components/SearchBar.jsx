@@ -1,4 +1,4 @@
-export default function SearchBar({ filters, onChange, categories }) {
+export default function SearchBar({ filters, onChange, categories, accounts = [] }) {
   const update = (key, value) => onChange({ ...filters, [key]: value });
 
   return (
@@ -33,6 +33,19 @@ export default function SearchBar({ filters, onChange, categories }) {
           <option value="">All</option>
           {(categories || []).map(c => (
             <option key={c.id} value={c.name}>{c.name}</option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className="block text-xs text-gray-500 mb-1">Account</label>
+        <select
+          value={filters.account_id || ''}
+          onChange={e => update('account_id', e.target.value)}
+          className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none max-w-[220px]"
+        >
+          <option value="">All accounts</option>
+          {(accounts || []).map(account => (
+            <option key={account.id} value={account.id}>{account.name}</option>
           ))}
         </select>
       </div>

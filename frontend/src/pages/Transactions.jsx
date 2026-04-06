@@ -2,10 +2,11 @@ import { useState, useEffect, useCallback } from 'react';
 import TransactionTable from '../components/TransactionTable';
 import SearchBar from '../components/SearchBar';
 
-export default function Transactions() {
+export default function Transactions({ initialFilters = {} }) {
   const [transactions, setTransactions] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [filters, setFilters] = useState({});
+  const [accounts, setAccounts] = useState([]);
+  const [filters, setFilters] = useState(initialFilters);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
@@ -14,7 +15,13 @@ export default function Transactions() {
 
   useEffect(() => {
     fetch('/api/transactions/categories').then(r => r.json()).then(setCategories);
+    fetch('/api/transactions/filters').then(r => r.json()).then(data => setAccounts(data.accounts || []));
   }, []);
+
+  useEffect(() => {
+    setFilters(initialFilters || {});
+    setPage(1);
+  }, [initialFilters]);
 
   const loadTransactions = useCallback(() => {
     const params = new URLSearchParams({ page, limit: 50, ...filters });
@@ -84,7 +91,7 @@ export default function Transactions() {
         </div>
       </div>
 
-      <SearchBar filters={filters} onChange={handleFilterChange} categories={categories} />
+      <SearchBar filters={filters} onChange={handleFilterChange} categories={categories} accounts={accounts} />
 
       {/* Bulk actions */}
       {selectedIds.size > 0 && (

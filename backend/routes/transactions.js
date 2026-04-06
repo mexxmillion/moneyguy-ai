@@ -85,6 +85,23 @@ router.get('/categories', (req, res) => {
   res.json(categories);
 });
 
+router.get('/filters', (req, res) => {
+  const accounts = db.prepare(`
+    SELECT id, name, institution, type
+    FROM accounts
+    WHERE is_active = 1
+    ORDER BY COALESCE(institution, ''), name
+  `).all();
+
+  res.json({
+    accounts: accounts.map(account => ({
+      id: account.id,
+      name: account.institution ? `${account.institution} • ${account.name}` : account.name,
+      type: account.type,
+    })),
+  });
+});
+
 // Dashboard stats
 router.get('/stats', (req, res) => {
   const { month, year } = req.query;

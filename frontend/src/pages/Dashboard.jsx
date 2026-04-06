@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { SpendingByCategory, DailySpendingChart } from '../components/ChartWidget';
 import CategoryBadge from '../components/CategoryBadge';
 
-export default function Dashboard() {
+export default function Dashboard({ onOpenAccounts, onOpenTransactions }) {
   const [stats, setStats] = useState(null);
+  const [accountsData, setAccountsData] = useState(null);
   const [recent, setRecent] = useState([]);
   const [month, setMonth] = useState(() => {
     const d = new Date();
@@ -13,6 +14,8 @@ export default function Dashboard() {
   useEffect(() => {
     fetch(`/api/transactions/stats?month=${month.month}&year=${month.year}`)
       .then(r => r.json()).then(setStats);
+    fetch('/api/accounts')
+      .then(r => r.json()).then(setAccountsData);
     fetch('/api/transactions?limit=10&sort=transaction_date&order=DESC')
       .then(r => r.json()).then(d => setRecent(d.transactions));
   }, [month]);
@@ -22,7 +25,7 @@ export default function Dashboard() {
   const months = [];
   for (let m = 1; m <= 12; m++) months.push({ value: String(m), label: new Date(2026, m - 1).toLocaleString('default', { month: 'long' }) });
 
-  if (!stats) return <div className="text-gray-500">Loading...</div>;
+  if (!stats || !accountsData) return <div className="text-gray-500">Loading...</div>;
 
   return (
     <div className="space-y-6">
@@ -36,8 +39,15 @@ export default function Dashboard() {
           className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white w-24" />
       </div>
 
-      {/* Quick stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {/* Net worth / quick stats */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+        <StatCard label="Net Worth" value={fmt(accountsData.summary.netWorth)} color="text-emerald-400" sub="Cash + investments - debt" />
+        <StatCard label="Cash" value={fmt(accountsData.summary.cashTotal)} color="text-sky-400" sub={`${accountsData.summary.accountCount} total accounts`} />
+        <StatCard label="Credit Debt" value={fmt(accountsData.summary.debtTotal)} color="text-rose-400" sub="Latest statement balances" />
+        <StatCard label="Investments" value={fmt(accountsData.summary.investmentTotal)} color="text-amber-400" sub="Imported account totals" />
+      </div>
+
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard label="Total Spent" value={fmt(stats.totalSpent)} color="text-red-400" />
         <StatCard label="Total Paid" value={fmt(stats.totalPaid)} color="text-emerald-400" />
         <StatCard label="Biggest Purchase" value={stats.biggestPurchase ? fmt(stats.biggestPurchase.amount) : 'N/A'}
@@ -58,9 +68,40 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Top merchants + recent transactions */}
-      <div className="grid md:grid-cols-2 gap-6">
-        <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
+      {/* Accounts + top merchants + recent transactions */}
+      <div className="grid xl:grid-cols-3 gap-6">
+        <div className="bg-gray-900 rounded-xl p-5 border border-gray-800 xl:col-span-1">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-medium text-gray-400">Accounts Snapshot</h3>
+            <button onClick={onOpenAccounts} className="text-xs text-emerald-400 hover:text-emerald-300">Open accounts</button>
+          </div>
+          <div className="space-y-3">
+            {accountsData.groups.map(group => (
+              <div key={group.key} className="rounded-xl border border-gray-800 bg-gray-950/60 p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <div className="text-sm text-gray-200">{group.label}</div>
+                    <div className="text-xs text-gray-500">{group.accountCount} account{group.accountCount === 1 ? '' : 's'}</div>
+                  </div>
+                  <div className="text-sm font-semibold text-white">{fmt(group.totalBalance)}</div>
+                </div>
+                <div className="space-y-2">
+                  {group.accounts.slice(0, 3).map(account => (
+                    <button
+                      key={account.id}
+                      onClick={() => onOpenTransactions?.(account.id)}
+                      className="w-full flex items-center justify-between text-left text-xs text-gray-400 hover:text-white"
+                    >
+                      <span className="truncate pr-3">{account.name}</span>
+                      <span className="font-mono text-gray-300">{fmt(account.balance)}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="bg-gray-900 rounded-xl p-5 border border-gray-800 xl:col-span-1">
           <h3 className="text-sm font-medium text-gray-400 mb-4">Top Merchants</h3>
           <div className="space-y-2">
             {stats.topMerchants.map((m, i) => (
@@ -74,8 +115,11 @@ export default function Dashboard() {
             ))}
           </div>
         </div>
-        <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
-          <h3 className="text-sm font-medium text-gray-400 mb-4">Recent Transactions</h3>
+        <div className="bg-gray-900 rounded-xl p-5 border border-gray-800 xl:col-span-1">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-medium text-gray-400">Recent Transactions</h3>
+            <button onClick={() => onOpenTransactions?.()} className="text-xs text-emerald-400 hover:text-emerald-300">See all</button>
+          </div>
           <div className="space-y-2">
             {recent.map(tx => (
               <div key={tx.id} className="flex justify-between items-center text-sm">

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Dashboard from './pages/Dashboard';
+import Accounts from './pages/Accounts';
 import Upload from './pages/Upload';
 import Transactions from './pages/Transactions';
 import AIChat from './pages/AIChat';
@@ -7,9 +8,10 @@ import Categories from './pages/Categories';
 import Settings from './pages/Settings';
 
 const tabs = [
-  { id: 'dashboard', label: 'Dashboard', icon: '📊' },
-  { id: 'upload', label: 'Upload', icon: '📁' },
+  { id: 'dashboard', label: 'Overview', icon: '📊' },
+  { id: 'accounts', label: 'Accounts', icon: '🏦' },
   { id: 'transactions', label: 'Transactions', icon: '💰' },
+  { id: 'upload', label: 'Upload', icon: '📁' },
   { id: 'ai', label: 'AI Query', icon: '🤖' },
   { id: 'categories', label: 'Categories', icon: '🏷️' },
   { id: 'settings', label: 'Settings', icon: '⚙️' },
@@ -17,6 +19,12 @@ const tabs = [
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [transactionsFilters, setTransactionsFilters] = useState({});
+
+  const openTransactions = (accountId) => {
+    setTransactionsFilters(accountId ? { account_id: String(accountId) } : {});
+    setActiveTab('transactions');
+  };
 
   return (
     <div className="min-h-screen bg-gray-950">
@@ -43,9 +51,15 @@ export default function App() {
 
       {/* Content */}
       <main className="p-6 max-w-[1400px] mx-auto">
-        {activeTab === 'dashboard' && <Dashboard />}
+        {activeTab === 'dashboard' && (
+          <Dashboard
+            onOpenAccounts={() => setActiveTab('accounts')}
+            onOpenTransactions={openTransactions}
+          />
+        )}
+        {activeTab === 'accounts' && <Accounts onOpenTransactions={openTransactions} />}
         {activeTab === 'upload' && <Upload />}
-        {activeTab === 'transactions' && <Transactions />}
+        {activeTab === 'transactions' && <Transactions initialFilters={transactionsFilters} />}
         {activeTab === 'ai' && <AIChat />}
         {activeTab === 'categories' && <Categories />}
         {activeTab === 'settings' && <Settings />}
