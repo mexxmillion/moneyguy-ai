@@ -22,6 +22,7 @@ export default function AppShell({ title, subtitle, children, actions }) {
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={false}
                 className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all ${
                   active ? 'bg-white text-[var(--primary)] shadow-sm' : 'text-[var(--muted)] hover:bg-[var(--surface-muted)]'
                 }`}
