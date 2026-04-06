@@ -94,6 +94,17 @@ export default function TransactionTable({
                       <option key={c.id} value={c.name}>{c.name}</option>
                     ))}
                   </select>
+                ) : tx.category === 'Uncategorized' || !tx.category ? (
+                  <select
+                    defaultValue=""
+                    onChange={e => { if (e.target.value && onUpdate) onUpdate(tx.id, { category: e.target.value }); }}
+                    className="bg-amber-900/40 border border-amber-700/60 text-xs rounded px-2 py-1 text-amber-300 cursor-pointer hover:border-amber-500"
+                  >
+                    <option value="" disabled>⚡ Categorize</option>
+                    {(categories || []).map(c => (
+                      <option key={c.id} value={c.name}>{c.name}</option>
+                    ))}
+                  </select>
                 ) : (
                   <CategoryBadge category={tx.category} />
                 )}

@@ -15,6 +15,8 @@ export default function Transactions({ initialFilters = {} }) {
   const [bulkCategory, setBulkCategory] = useState('');
   const [sort, setSort] = useState('transaction_date');
   const [order, setOrder] = useState('DESC');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiResult, setAiResult] = useState(null);
 
   useEffect(() => {
     fetch('/api/transactions/categories').then(r => r.json()).then(setCategories);
@@ -42,6 +44,18 @@ export default function Transactions({ initialFilters = {} }) {
   }, [page, filters, sort, order]);
 
   const handleSort = (col, dir) => { setSort(col); setOrder(dir); setPage(1); };
+
+  const handleAiCategorize = async () => {
+    setAiLoading(true);
+    setAiResult(null);
+    try {
+      const r = await fetch('/api/transactions/ai-categorize', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+      const d = await r.json();
+      setAiResult(d.updated);
+      loadTransactions();
+    } catch { setAiResult(-1); }
+    setAiLoading(false);
+  };
 
   useEffect(() => { loadTransactions(); }, [loadTransactions]);
 
@@ -91,6 +105,13 @@ export default function Transactions({ initialFilters = {} }) {
           Transactions <span className="text-gray-500 text-sm font-normal">({total})</span>
         </h2>
         <div className="flex gap-2">
+          <button onClick={handleAiCategorize} disabled={aiLoading}
+            className="px-3 py-1.5 bg-violet-700 hover:bg-violet-600 disabled:opacity-50 rounded-lg text-xs text-white font-medium flex items-center gap-1.5">
+            {aiLoading ? '⏳ Categorizing…' : '✨ AI Categorize'}
+          </button>
+          {aiResult !== null && (
+            <span className="text-xs text-emerald-400">{aiResult > 0 ? `✓ ${aiResult} updated` : aiResult === 0 ? '✓ All categorized' : '✗ Error'}</span>
+          )}
           <a href={exportUrl('csv')} className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-xs text-gray-300">Export CSV</a>
           <a href={exportUrl('pdf')} className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-xs text-gray-300">Export PDF</a>
         </div>

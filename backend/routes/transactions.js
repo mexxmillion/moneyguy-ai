@@ -294,3 +294,62 @@ router.post('/merchant-rules', (req, res) => {
 });
 
 module.exports = router;
+
+// AI auto-categorize uncategorized transactions
+router.post('/ai-categorize', async (req, res) => {
+  const { ids } = req.body;
+
+  const where = ids && ids.length > 0
+    ? `WHERE id IN (${ids.map(() => '?').join(',')}) AND category = 'Uncategorized'`
+    : `WHERE category = 'Uncategorized'`;
+  const params = ids && ids.length > 0 ? ids : [];
+
+  const rows = db.prepare(`SELECT id, merchant_name, description, amount FROM transactions ${where}`).all(...params);
+  if (rows.length === 0) return res.json({ updated: 0, results: [] });
+
+  const categories = db.prepare("SELECT name FROM categories WHERE name != 'Uncategorized'").all().map(c => c.name);
+
+  const txLines = rows.map(r => JSON.stringify({ id: r.id, merchant: r.merchant_name, desc: r.description, amount: r.amount })).join('\n');
+
+  const prompt = `You are a personal finance categorizer. Assign each transaction the best category from: ${categories.join(', ')}.
+
+Rules:
+- Monthly fee, service charge, bank fee → Interest/Fees
+- e-Transfer, Online Banking transfer → Transfers
+- Rent, lease, ECO-WORLD → Housing
+- Restaurant, BBQ, sushi, food, eggette, flourist, barbeque, tast → Dining
+- Dog, pet, whisker, bark → Shopping
+- AMEX, CIBC, Mastercard payment → Payments
+- City of, parking, transit, paybyphone → Transport/Parking
+- Grocery, market, superstore → Groceries
+- Netflix, Spotify, subscription → Subscriptions
+- If truly unclear → Uncategorized
+
+Respond ONLY with a JSON array like: [{"id":1,"category":"Dining"}]
+
+Transactions:
+${txLines}`;
+
+  try {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'openai/gpt-4.1-nano', messages: [{ role: 'user', content: prompt }], temperature: 0 }),
+    });
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || '';
+    const jsonMatch = content.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) return res.status(500).json({ error: 'AI returned no valid JSON', raw: content });
+
+    const results = JSON.parse(jsonMatch[0]);
+    const stmt = db.prepare('UPDATE transactions SET category = ? WHERE id = ?');
+    let updated = 0;
+    for (const { id, category } of results) {
+      stmt.run(category, id);
+      updated++;
+    }
+    res.json({ updated, results });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
