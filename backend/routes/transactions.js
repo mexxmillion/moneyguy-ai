@@ -117,7 +117,7 @@ router.get('/stats', (req, res) => {
   const byCategory = db.prepare(`
     SELECT category, SUM(amount) as total, COUNT(*) as count
     FROM transactions t ${dateFilter}
-    ${dateFilter ? 'AND' : 'WHERE'} category != 'Payments'
+    ${dateFilter ? 'AND' : 'WHERE'} category NOT IN ('Payments','Transfers','Ignore')
     GROUP BY category ORDER BY total DESC
   `).all(...params);
 
@@ -125,7 +125,7 @@ router.get('/stats', (req, res) => {
   const topMerchants = db.prepare(`
     SELECT merchant_name, SUM(amount) as total, COUNT(*) as count
     FROM transactions t ${dateFilter}
-    ${dateFilter ? 'AND' : 'WHERE'} category != 'Payments'
+    ${dateFilter ? 'AND' : 'WHERE'} category NOT IN ('Payments','Transfers','Ignore')
     GROUP BY merchant_name ORDER BY total DESC LIMIT 10
   `).all(...params);
 
@@ -133,14 +133,14 @@ router.get('/stats', (req, res) => {
   const dailySpending = db.prepare(`
     SELECT transaction_date, SUM(amount) as total
     FROM transactions t ${dateFilter}
-    ${dateFilter ? 'AND' : 'WHERE'} category != 'Payments'
+    ${dateFilter ? 'AND' : 'WHERE'} category NOT IN ('Payments','Transfers','Ignore')
     GROUP BY transaction_date ORDER BY transaction_date
   `).all(...params);
 
   // Quick stats
   const totalSpent = db.prepare(`
     SELECT COALESCE(SUM(amount), 0) as total FROM transactions t ${dateFilter}
-    ${dateFilter ? 'AND' : 'WHERE'} category != 'Payments' AND amount > 0
+    ${dateFilter ? 'AND' : 'WHERE'} category NOT IN ('Payments','Transfers','Ignore') AND amount > 0
   `).get(...params);
 
   const totalPaid = db.prepare(`
@@ -150,13 +150,13 @@ router.get('/stats', (req, res) => {
 
   const biggest = db.prepare(`
     SELECT * FROM transactions t ${dateFilter}
-    ${dateFilter ? 'AND' : 'WHERE'} category != 'Payments'
+    ${dateFilter ? 'AND' : 'WHERE'} category NOT IN ('Payments','Transfers','Ignore')
     ORDER BY amount DESC LIMIT 1
   `).get(...params);
 
   const mostVisited = db.prepare(`
     SELECT merchant_name, COUNT(*) as visits FROM transactions t ${dateFilter}
-    ${dateFilter ? 'AND' : 'WHERE'} category != 'Payments'
+    ${dateFilter ? 'AND' : 'WHERE'} category NOT IN ('Payments','Transfers','Ignore')
     GROUP BY merchant_name ORDER BY visits DESC LIMIT 1
   `).get(...params);
 
@@ -375,11 +375,11 @@ router.get('/trends', (req, res) => {
     ? "strftime('%Y-W%W', t.transaction_date)"
     : "t.transaction_date";
 
-  // Spending over time (debits only)
+  // Spending over time (debits only, exclude Ignore)
   const overTime = db.prepare(`
     SELECT ${groupKey} as period,
-      SUM(CASE WHEN t.amount > 0 THEN t.amount ELSE 0 END) as spending,
-      SUM(CASE WHEN t.amount < 0 THEN ABS(t.amount) ELSE 0 END) as income,
+      SUM(CASE WHEN t.amount > 0 AND t.category NOT IN ('Ignore','Transfers') THEN t.amount ELSE 0 END) as spending,
+      SUM(CASE WHEN t.amount < 0 AND t.category NOT IN ('Ignore','Transfers') THEN ABS(t.amount) ELSE 0 END) as income,
       COUNT(*) as count
     FROM transactions t ${where}
     GROUP BY period ORDER BY period ASC
@@ -391,7 +391,7 @@ router.get('/trends', (req, res) => {
       SUM(CASE WHEN t.amount > 0 THEN t.amount ELSE 0 END) as total,
       COUNT(*) as count
     FROM transactions t ${where}
-    ${where ? 'AND' : 'WHERE'} t.amount > 0 AND t.category != 'Payments' AND t.category != 'Transfers'
+    ${where ? 'AND' : 'WHERE'} t.amount > 0 AND t.category NOT IN ('Payments','Transfers','Ignore') AND t.category != 'Transfers'
     GROUP BY t.category ORDER BY total DESC
   `).all(...params);
 

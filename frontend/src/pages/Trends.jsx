@@ -245,7 +245,7 @@ export default function Trends() {
             <select value={filters.category || ''} onChange={e => updateFilter('category', e.target.value)}
               className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-white focus:border-emerald-500 focus:outline-none">
               <option value="">All categories</option>
-              {['Auto/Mechanic','Dining','Entertainment','Groceries','Housing','Interest/Fees','Payments','Shopping','Subscriptions','Transfers','Transport/Parking','Uncategorized'].map(c => (
+              {['Auto/Mechanic','Dining','Entertainment','Groceries','Housing','Ignore','Interest/Fees','Payments','Shopping','Subscriptions','Transfers','Transport/Parking','Uncategorized'].map(c => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>

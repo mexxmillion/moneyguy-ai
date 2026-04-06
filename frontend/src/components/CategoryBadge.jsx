@@ -9,6 +9,9 @@ const CATEGORY_COLORS = {
   'Interest/Fees': 'bg-red-500/20 text-red-400 border-red-500/30',
   'Payments': 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
   'Uncategorized': 'bg-gray-500/20 text-gray-400 border-gray-500/30',
+  'Ignore': 'bg-gray-800/80 text-gray-600 border-gray-700/50 line-through',
+  'Transfers': 'bg-sky-500/20 text-sky-400 border-sky-500/30',
+  'Housing': 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
 };
 
 export default function CategoryBadge({ category }) {

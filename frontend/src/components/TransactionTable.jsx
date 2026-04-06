@@ -91,6 +91,8 @@ export default function TransactionTable({
               className={`transition-colors group ${
                 isSelected(tx.id)
                   ? 'bg-emerald-900/25 border-l-2 border-l-emerald-500'
+                  : tx.category === 'Ignore'
+                  ? 'opacity-40 hover:opacity-70 border-l-2 border-l-transparent'
                   : 'hover:bg-gray-800/30 border-l-2 border-l-transparent'
               } ${selectable ? 'cursor-pointer select-none' : ''}`}
             >
