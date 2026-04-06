@@ -131,26 +131,29 @@ function migrate() {
     ['accounts', 'card_type', 'TEXT'],
     ['accounts', 'credit_limit', 'INTEGER'],
     ['accounts', 'is_active', 'INTEGER DEFAULT 1'],
-    // Multi-user columns
-    ['accounts', 'user_id', 'INTEGER REFERENCES users(id) DEFAULT 1'],
-    ['statements', 'user_id', 'INTEGER REFERENCES users(id) DEFAULT 1'],
-    ['transactions', 'user_id', 'INTEGER REFERENCES users(id) DEFAULT 1'],
-    ['audit_log', 'user_id', 'INTEGER REFERENCES users(id) DEFAULT 1'],
-    ['budgets', 'user_id', 'INTEGER REFERENCES users(id) DEFAULT 1'],
+    // Multi-user columns (no FK in ALTER — SQLite limitation)
+    ['accounts', 'user_id', 'INTEGER DEFAULT 1'],
+    ['statements', 'user_id', 'INTEGER DEFAULT 1'],
+    ['transactions', 'user_id', 'INTEGER DEFAULT 1'],
+    ['audit_log', 'user_id', 'INTEGER DEFAULT 1'],
+    ['budgets', 'user_id', 'INTEGER DEFAULT 1'],
   ];
   for (const [table, col, type] of alterStatements) {
     try { db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${type}`); } catch (e) { /* column already exists */ }
   }
 
   // Indexes that depend on ALTERed columns (must run after ALTER block)
-  db.exec(`
-    CREATE INDEX IF NOT EXISTS idx_statements_hash ON statements(source_file_hash);
-    CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at);
-    CREATE INDEX IF NOT EXISTS idx_accounts_user ON accounts(user_id);
-    CREATE INDEX IF NOT EXISTS idx_transactions_user ON transactions(user_id);
-    CREATE INDEX IF NOT EXISTS idx_statements_user ON statements(user_id);
-    CREATE INDEX IF NOT EXISTS idx_budgets_user ON budgets(user_id);
-  `);
+  const indexes = [
+    'CREATE INDEX IF NOT EXISTS idx_statements_hash ON statements(source_file_hash)',
+    'CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at)',
+    'CREATE INDEX IF NOT EXISTS idx_accounts_user ON accounts(user_id)',
+    'CREATE INDEX IF NOT EXISTS idx_transactions_user ON transactions(user_id)',
+    'CREATE INDEX IF NOT EXISTS idx_statements_user ON statements(user_id)',
+    'CREATE INDEX IF NOT EXISTS idx_budgets_user ON budgets(user_id)',
+  ];
+  for (const sql of indexes) {
+    try { db.exec(sql); } catch (e) { /* index or column may not exist yet */ }
+  }
 
   // Rebuild budgets table if it has the old UNIQUE(category) constraint
   // Need UNIQUE(user_id, category) instead
