@@ -9,16 +9,18 @@ export default function TransactionSummary({ filters }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  const filtersKey = JSON.stringify(filters);
+
   useEffect(() => {
     setLoading(true);
     setData(null);
-    const params = new URLSearchParams(filters);
-    for (const [k, v] of [...params.entries()]) if (!v) params.delete(k);
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([k, v]) => { if (v) params.set(k, v); });
     fetch(`/api/transactions/summary?${params}`)
       .then(r => r.json())
       .then(d => { setData(d); setLoading(false); })
       .catch(() => setLoading(false));
-  }, [JSON.stringify(filters)]);
+  }, [filtersKey]);
 
   if (loading) return (
     <div className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-3 text-xs text-gray-500">
@@ -26,7 +28,11 @@ export default function TransactionSummary({ filters }) {
     </div>
   );
 
-  if (!data) return null;
+  if (!data) return (
+    <div className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-4 text-xs text-gray-600 text-center">
+      No data
+    </div>
+  );
 
   const stats = [
     { label: 'Count',      value: data.count.toLocaleString(),         color: 'text-white' },
