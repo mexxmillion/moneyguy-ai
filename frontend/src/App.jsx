@@ -7,6 +7,7 @@ import AIChat from './pages/AIChat';
 import Categories from './pages/Categories';
 import Settings from './pages/Settings';
 import Budgets from './pages/Budgets';
+import ErrorBoundary from './components/ErrorBoundary';
 
 const tabs = [
   { id: 'dashboard', label: 'Overview', icon: '📊' },
@@ -53,19 +54,21 @@ export default function App() {
 
       {/* Content */}
       <main className="p-6 max-w-[1400px] mx-auto">
-        {activeTab === 'dashboard' && (
-          <Dashboard
-            onOpenAccounts={() => setActiveTab('accounts')}
-            onOpenTransactions={openTransactions}
-          />
-        )}
-        {activeTab === 'accounts' && <Accounts onOpenTransactions={openTransactions} />}
-        {activeTab === 'upload' && <Upload />}
-        {activeTab === 'transactions' && <Transactions initialFilters={transactionsFilters} />}
-        {activeTab === 'ai' && <AIChat />}
-        {activeTab === 'budgets' && <Budgets />}
-        {activeTab === 'categories' && <Categories />}
-        {activeTab === 'settings' && <Settings />}
+        <ErrorBoundary key={activeTab}>
+          {activeTab === 'dashboard' && (
+            <Dashboard
+              onOpenAccounts={() => setActiveTab('accounts')}
+              onOpenTransactions={openTransactions}
+            />
+          )}
+          {activeTab === 'accounts' && <Accounts onOpenTransactions={openTransactions} />}
+          {activeTab === 'upload' && <Upload />}
+          {activeTab === 'transactions' && <Transactions initialFilters={transactionsFilters} />}
+          {activeTab === 'ai' && <AIChat />}
+          {activeTab === 'budgets' && <Budgets />}
+          {activeTab === 'categories' && <Categories />}
+          {activeTab === 'settings' && <Settings />}
+        </ErrorBoundary>
       </main>
     </div>
   );
