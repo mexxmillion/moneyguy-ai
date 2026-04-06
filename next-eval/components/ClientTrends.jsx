@@ -1,12 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Line, Bar, Doughnut } from 'react-chartjs-2';
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Title, Tooltip, Legend, Filler } from 'chart.js';
+import dynamic from 'next/dynamic';
 import AppShell from '@/components/AppShell';
 import { fmt, fmtShort } from '@/components/format';
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Title, Tooltip, Legend, Filler);
+// Dynamic import to avoid chart.js SSR window access errors
+const Line = dynamic(() => import('react-chartjs-2').then(m => m.Line), { ssr: false });
+const Bar = dynamic(() => import('react-chartjs-2').then(m => m.Bar), { ssr: false });
+const Doughnut = dynamic(() => import('react-chartjs-2').then(m => m.Doughnut), { ssr: false });
 
 const COLORS = ['#0058bc','#006e28','#bc000a','#f97316','#8b5cf6','#14b8a6','#64748b','#eab308'];
 const PRESETS = [
@@ -32,8 +34,16 @@ const tickFont = { size: 11 };
 const axisCfg = { ticks: { color: tickColor, font: tickFont }, grid: { color: gridColor } };
 const moneyTick = (v) => '$' + v.toLocaleString();
 const moneyLabel = (ctx) => ` ${ctx.dataset.label}: $${ctx.parsed.y?.toLocaleString('en-CA', { minimumFractionDigits: 2 }) ?? ''}`;
-
 function dollars(n) { const v = parseFloat(n)||0; return Number.isInteger(v) && Math.abs(v) > 100 ? v/100 : v; }
+
+// Register chart.js only on client
+let chartRegistered = false;
+function ensureChartRegistered() {
+  if (chartRegistered || typeof window === 'undefined') return;
+  const { Chart, CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Title, Tooltip, Legend, Filler } = require('chart.js');
+  Chart.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Title, Tooltip, Legend, Filler);
+  chartRegistered = true;
+}
 
 export default function ClientTrends() {
   const [filters, setFilters] = useState(() => getPresetDates({ all: true }));
@@ -43,8 +53,13 @@ export default function ClientTrends() {
   const [loading, setLoading] = useState(false);
   const [activePreset, setActivePreset] = useState('All time');
   const [cumulative, setCumulative] = useState(false);
+  const [ready, setReady] = useState(false);
 
-  useEffect(() => { fetch('/api/accounts').then(r=>r.json()).then(d=>setAccounts(d.groups?.flatMap(g=>g.accounts)||[])); }, []);
+  useEffect(() => {
+    ensureChartRegistered();
+    setReady(true);
+    fetch('/api/accounts').then(r=>r.json()).then(d=>setAccounts(d.groups?.flatMap(g=>g.accounts)||[]));
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -142,7 +157,7 @@ export default function ClientTrends() {
 
       {loading && <div className="py-10 text-center text-sm text-[var(--muted)] animate-pulse">Loading trends…</div>}
 
-      {data && !loading && (
+      {data && !loading && ready && (
         <>
           <div className="surface-card rounded-[1.75rem] p-6 mb-6">
             <div className="mb-5 flex items-center justify-between">
