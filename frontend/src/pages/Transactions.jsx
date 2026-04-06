@@ -13,6 +13,8 @@ export default function Transactions({ initialFilters = {} }) {
   const [total, setTotal] = useState(0);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [bulkCategory, setBulkCategory] = useState('');
+  const [sort, setSort] = useState('transaction_date');
+  const [order, setOrder] = useState('DESC');
 
   useEffect(() => {
     fetch('/api/transactions/categories').then(r => r.json()).then(setCategories);
@@ -25,7 +27,7 @@ export default function Transactions({ initialFilters = {} }) {
   }, [initialFilters]);
 
   const loadTransactions = useCallback(() => {
-    const params = new URLSearchParams({ page, limit: 50, ...filters });
+    const params = new URLSearchParams({ page, limit: 50, sort, order, ...filters });
     // Remove empty params
     for (const [k, v] of params.entries()) {
       if (!v) params.delete(k);
@@ -37,7 +39,9 @@ export default function Transactions({ initialFilters = {} }) {
         setTotalPages(data.totalPages);
         setTotal(data.total);
       });
-  }, [page, filters]);
+  }, [page, filters, sort, order]);
+
+  const handleSort = (col, dir) => { setSort(col); setOrder(dir); setPage(1); };
 
   useEffect(() => { loadTransactions(); }, [loadTransactions]);
 
@@ -122,6 +126,9 @@ export default function Transactions({ initialFilters = {} }) {
           selectable
           selectedIds={selectedIds}
           onSelect={toggleSelect}
+          sort={sort}
+          order={order}
+          onSort={handleSort}
         />
       </div>
 
