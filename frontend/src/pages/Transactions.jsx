@@ -73,10 +73,11 @@ export default function Transactions({ initialFilters = {} }) {
     loadTransactions();
   };
 
-  const toggleSelect = (id) => {
+  const toggleSelect = (id, forceAdd = false) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (forceAdd) { next.add(id); }
+      else { next.has(id) ? next.delete(id) : next.add(id); }
       return next;
     });
   };
@@ -120,6 +121,11 @@ export default function Transactions({ initialFilters = {} }) {
       <SearchBar filters={filters} onChange={handleFilterChange} categories={categories} accounts={accounts} />
 
       <TransactionSummary filters={filters} />
+
+      {/* Selection hint */}
+      {selectedIds.size === 0 && (
+        <p className="text-xs text-gray-700">Click to select · Shift+click to select range</p>
+      )}
 
       {/* Bulk actions */}
       {selectedIds.size > 0 && (

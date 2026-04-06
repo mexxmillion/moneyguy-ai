@@ -16,6 +16,21 @@ export default function TransactionTable({
 }) {
   const [editingId, setEditingId] = useState(null);
   const [editValues, setEditValues] = useState({});
+  const [lastClickedIdx, setLastClickedIdx] = useState(null);
+
+  const handleRowClick = (e, tx, idx) => {
+    if (!selectable || !onSelect) return;
+    // Ignore clicks on interactive elements
+    if (e.target.closest('select,button,input,a')) return;
+    if (e.shiftKey && lastClickedIdx !== null) {
+      const lo = Math.min(lastClickedIdx, idx);
+      const hi = Math.max(lastClickedIdx, idx);
+      for (let i = lo; i <= hi; i++) onSelect(transactions[i].id, true);
+    } else {
+      onSelect(tx.id);
+      setLastClickedIdx(idx);
+    }
+  };
 
   const startEdit = (tx) => {
     setEditingId(tx.id);
@@ -52,12 +67,13 @@ export default function TransactionTable({
     </th>
   );
 
+  const isSelected = (id) => selectedIds?.has(id);
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead className="bg-gray-950/60">
           <tr className="border-b border-gray-800">
-            {selectable && <th className="p-3 w-8" />}
             <Th col="transaction_date" label="Date" />
             <Th col="merchant_name" label="Merchant" />
             <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
@@ -68,18 +84,16 @@ export default function TransactionTable({
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-800/50">
-          {transactions.map(tx => (
-            <tr key={tx.id} className="hover:bg-gray-800/30 transition-colors group">
-              {selectable && (
-                <td className="p-3">
-                  <input
-                    type="checkbox"
-                    checked={selectedIds?.has(tx.id)}
-                    onChange={() => onSelect?.(tx.id)}
-                    className="rounded bg-gray-800 border-gray-600 accent-emerald-500"
-                  />
-                </td>
-              )}
+          {transactions.map((tx, idx) => (
+            <tr
+              key={tx.id}
+              onClick={(e) => handleRowClick(e, tx, idx)}
+              className={`transition-colors group ${
+                isSelected(tx.id)
+                  ? 'bg-emerald-900/25 border-l-2 border-l-emerald-500'
+                  : 'hover:bg-gray-800/30 border-l-2 border-l-transparent'
+              } ${selectable ? 'cursor-pointer select-none' : ''}`}
+            >
               <td className="p-3 whitespace-nowrap text-gray-400 text-xs">{tx.transaction_date}</td>
               <td className="p-3 text-gray-100 max-w-[180px] truncate font-medium">{tx.merchant_name}</td>
               <td className="p-3 text-gray-500 max-w-[220px] truncate text-xs">{tx.description}</td>
