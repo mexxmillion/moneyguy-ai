@@ -1,27 +1,50 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
-const UserContext = createContext({ userId: 1, user: null, users: [], setUserId: () => {} });
+const UserContext = createContext({
+  user: null,
+  token: null,
+  loading: true,
+  login: () => {},
+  logout: () => {},
+});
 
 export function UserProvider({ children }) {
-  const [users, setUsers] = useState([]);
-  const [userId, setUserIdRaw] = useState(() => {
-    const stored = localStorage.getItem('moneyguy_user_id');
-    return stored ? parseInt(stored) : 1;
-  });
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState(() => localStorage.getItem('moneyguy_token'));
+  const [loading, setLoading] = useState(true);
 
+  // Validate existing token on mount
   useEffect(() => {
-    fetch('/api/users').then(r => r.json()).then(setUsers).catch(() => {});
+    if (!token) { setLoading(false); return; }
+    fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+      .then(data => { setUser(data.user); })
+      .catch(() => { setToken(null); localStorage.removeItem('moneyguy_token'); })
+      .finally(() => setLoading(false));
+  }, [token]);
+
+  const login = useCallback((newToken, newUser) => {
+    localStorage.setItem('moneyguy_token', newToken);
+    localStorage.setItem('moneyguy_user_id', String(newUser.id));
+    setToken(newToken);
+    setUser(newUser);
   }, []);
 
-  const setUserId = (id) => {
-    setUserIdRaw(id);
-    localStorage.setItem('moneyguy_user_id', String(id));
-  };
-
-  const user = users.find(u => u.id === userId) || null;
+  const logout = useCallback(() => {
+    if (token) {
+      fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => {});
+    }
+    localStorage.removeItem('moneyguy_token');
+    localStorage.removeItem('moneyguy_user_id');
+    setToken(null);
+    setUser(null);
+  }, [token]);
 
   return (
-    <UserContext.Provider value={{ userId, user, users, setUserId }}>
+    <UserContext.Provider value={{ user, userId: user?.id, token, loading, login, logout }}>
       {children}
     </UserContext.Provider>
   );
@@ -32,10 +55,14 @@ export function useUser() {
 }
 
 /**
- * Drop-in fetch replacement that injects X-User-Id header.
+ * Drop-in fetch replacement that injects auth token.
  */
 export function apiFetch(url, options = {}) {
-  const userId = localStorage.getItem('moneyguy_user_id') || '1';
-  const headers = { ...options.headers, 'X-User-Id': userId };
+  const token = localStorage.getItem('moneyguy_token') || '';
+  const headers = {
+    ...options.headers,
+    'Authorization': `Bearer ${token}`,
+    'X-User-Id': localStorage.getItem('moneyguy_user_id') || '1',
+  };
   return fetch(url, { ...options, headers });
 }

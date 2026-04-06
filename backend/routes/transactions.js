@@ -79,6 +79,16 @@ router.post('/bulk-categorize', (req, res) => {
   res.json({ updated: ids.length });
 });
 
+// Rename a category across all transactions
+router.post('/bulk-recategorize', (req, res) => {
+  const { old_category, new_category } = req.body;
+  if (!old_category || !new_category) {
+    return res.status(400).json({ error: 'old_category and new_category required' });
+  }
+  const result = db.prepare('UPDATE transactions SET category = ? WHERE category = ?').run(new_category, old_category);
+  res.json({ updated: result.changes });
+});
+
 // Get categories
 router.get('/categories', (req, res) => {
   const categories = db.prepare('SELECT * FROM categories').all();

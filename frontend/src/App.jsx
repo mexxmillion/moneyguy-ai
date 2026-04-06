@@ -9,6 +9,7 @@ import Settings from './pages/Settings';
 import Budgets from './pages/Budgets';
 import Trends from './pages/Trends';
 import Review from './pages/Review';
+import Login from './pages/Login';
 import ErrorBoundary from './components/ErrorBoundary';
 import { UserProvider, useUser, apiFetch } from './UserContext';
 
@@ -34,15 +35,29 @@ export default function App() {
 }
 
 function AppInner() {
-  const { userId, user, users, setUserId } = useUser();
+  const { user, loading, login, logout } = useUser();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [transactionsFilters, setTransactionsFilters] = useState({});
   const [reviewCount, setReviewCount] = useState(0);
 
   // Load review count on mount / user switch
   useState(() => {
-    apiFetch('/api/transactions/review').then(r => r.json()).then(d => setReviewCount(d.count || 0)).catch(() => {});
+    if (user) {
+      apiFetch('/api/transactions/review').then(r => r.json()).then(d => setReviewCount(d.count || 0)).catch(() => {});
+    }
   });
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+        <div className="text-gray-500">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Login onLogin={login} />;
+  }
 
   const openTransactions = (accountId) => {
     setTransactionsFilters(accountId ? { account_id: String(accountId) } : {});
@@ -55,45 +70,40 @@ function AppInner() {
       <header className="bg-gray-900 border-b border-gray-800 px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <h1 className="text-xl font-bold text-emerald-400">MoneyGuy 2.0</h1>
-          {users.length > 1 && (
-            <div className="flex gap-1">
-              {users.map(u => (
-                <button
-                  key={u.id}
-                  onClick={() => { setUserId(u.id); window.location.reload(); }}
-                  className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-                    userId === u.id
-                      ? 'bg-emerald-600 text-white'
-                      : 'bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700'
-                  }`}
-                >
-                  {u.emoji} {u.name}
-                </button>
-              ))}
-            </div>
-          )}
+          <span className="text-sm text-gray-400 bg-gray-800 px-3 py-1 rounded-full">
+            {user.emoji} {user.name}
+          </span>
         </div>
-        <nav className="flex gap-1">
-          {tabs.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`relative px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                activeTab === tab.id
-                  ? 'bg-emerald-600 text-white'
-                  : 'text-gray-400 hover:text-white hover:bg-gray-800'
-              }`}
-            >
-              <span className="mr-1.5">{tab.icon}</span>
-              {tab.label}
-              {tab.id === 'review' && reviewCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-amber-500 text-black text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                  {reviewCount}
-                </span>
-              )}
-            </button>
-          ))}
-        </nav>
+        <div className="flex items-center gap-2">
+          <nav className="flex gap-1">
+            {tabs.map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`relative px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  activeTab === tab.id
+                    ? 'bg-emerald-600 text-white'
+                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                }`}
+              >
+                <span className="mr-1.5">{tab.icon}</span>
+                {tab.label}
+                {tab.id === 'review' && reviewCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-amber-500 text-black text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                    {reviewCount}
+                  </span>
+                )}
+              </button>
+            ))}
+          </nav>
+          <button
+            onClick={logout}
+            className="ml-3 text-gray-500 hover:text-red-400 text-sm px-3 py-2 rounded-lg hover:bg-gray-800 transition-colors"
+            title="Log out"
+          >
+            Logout
+          </button>
+        </div>
       </header>
 
       {/* Content */}

@@ -2,6 +2,22 @@ import { apiFetch } from '../UserContext';
 import { useState, useEffect, useCallback } from 'react';
 import CategoryBadge from '../components/CategoryBadge';
 
+const ICON_OPTIONS = ['📁','🛒','🍽️','🚗','📱','🛍️','🎭','🔧','💳','✅','❓','🚫','🔄','🏠','🐾','💊','🎓','👶','💇','🏋️','✈️','🎁','🧾','💡','📦'];
+const COLOR_OPTIONS = [
+  { value: '#22c55e', label: 'Green' },
+  { value: '#f97316', label: 'Orange' },
+  { value: '#3b82f6', label: 'Blue' },
+  { value: '#8b5cf6', label: 'Violet' },
+  { value: '#ec4899', label: 'Pink' },
+  { value: '#14b8a6', label: 'Teal' },
+  { value: '#64748b', label: 'Slate' },
+  { value: '#ef4444', label: 'Red' },
+  { value: '#10b981', label: 'Emerald' },
+  { value: '#eab308', label: 'Yellow' },
+  { value: '#0ea5e9', label: 'Sky' },
+  { value: '#6b7280', label: 'Gray' },
+];
+
 export default function Categories() {
   const [categories, setCategories] = useState([]);
   const [rules, setRules] = useState([]);
@@ -10,10 +26,21 @@ export default function Categories() {
   const [totalPages, setTotalPages] = useState(1);
   const [newRule, setNewRule] = useState({ merchant_pattern: '', category_id: '' });
 
-  useEffect(() => {
+  // Category management state
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({ name: '', color: '', icon: '' });
+  const [showAdd, setShowAdd] = useState(false);
+  const [addForm, setAddForm] = useState({ name: '', color: '#6b7280', icon: '📁' });
+  const [catError, setCatError] = useState('');
+
+  const loadCategories = useCallback(() => {
     apiFetch('/api/transactions/categories').then(r => r.json()).then(setCategories);
-    apiFetch('/api/transactions/merchant-rules').then(r => r.json()).then(setRules);
   }, []);
+
+  useEffect(() => {
+    loadCategories();
+    apiFetch('/api/transactions/merchant-rules').then(r => r.json()).then(setRules);
+  }, [loadCategories]);
 
   const loadTransactions = useCallback(() => {
     apiFetch(`/api/transactions?page=${page}&limit=30&sort=transaction_date&order=DESC`)
@@ -51,9 +78,176 @@ export default function Categories() {
     return rules.find(r => upper.includes(r.merchant_pattern.toUpperCase()));
   };
 
+  // --- Category CRUD ---
+
+  function startEdit(cat) {
+    setEditingId(cat.id);
+    setEditForm({ name: cat.name, color: cat.color || '#6b7280', icon: cat.icon || '📁' });
+    setCatError('');
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setCatError('');
+  }
+
+  async function saveEdit() {
+    setCatError('');
+    if (!editForm.name.trim()) { setCatError('Name required'); return; }
+    const oldCat = categories.find(c => c.id === editingId);
+    const res = await apiFetch(`/api/categories/${editingId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(editForm),
+    });
+    if (!res.ok) { setCatError('Failed to save'); return; }
+    // If name changed, update all transactions using the old name
+    if (oldCat && oldCat.name !== editForm.name.trim()) {
+      await apiFetch('/api/transactions/bulk-recategorize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ old_category: oldCat.name, new_category: editForm.name.trim() }),
+      });
+    }
+    setEditingId(null);
+    loadCategories();
+    loadTransactions();
+  }
+
+  async function addCategory() {
+    setCatError('');
+    if (!addForm.name.trim()) { setCatError('Name required'); return; }
+    const res = await apiFetch('/api/categories', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(addForm),
+    });
+    const data = await res.json();
+    if (!res.ok) { setCatError(data.error || 'Failed to add'); return; }
+    setAddForm({ name: '', color: '#6b7280', icon: '📁' });
+    setShowAdd(false);
+    loadCategories();
+  }
+
   return (
     <div className="space-y-6">
-      <h2 className="text-lg font-semibold text-gray-200">Category Review</h2>
+      <h2 className="text-lg font-semibold text-gray-200">Categories & Rules</h2>
+
+      {/* Category management */}
+      <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-medium text-gray-400">Categories ({categories.length})</h3>
+          {!showAdd && (
+            <button onClick={() => { setShowAdd(true); setCatError(''); }}
+              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-xs text-white font-medium">
+              + Add Category
+            </button>
+          )}
+        </div>
+
+        {/* Add new category form */}
+        {showAdd && (
+          <div className="bg-gray-800 rounded-lg p-4 mb-4 border border-gray-700">
+            <h4 className="text-sm font-medium text-white mb-3">New Category</h4>
+            <div className="flex gap-3 items-end flex-wrap">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Icon</label>
+                <div className="flex gap-1 flex-wrap max-w-xs">
+                  {ICON_OPTIONS.map(icon => (
+                    <button key={icon} onClick={() => setAddForm({ ...addForm, icon })}
+                      className={`w-8 h-8 rounded text-lg flex items-center justify-center transition-colors ${
+                        addForm.icon === icon ? 'bg-emerald-600 ring-2 ring-emerald-400' : 'bg-gray-700 hover:bg-gray-600'
+                      }`}>
+                      {icon}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex-1 min-w-[150px]">
+                <label className="block text-xs text-gray-500 mb-1">Name</label>
+                <input value={addForm.name} onChange={e => setAddForm({ ...addForm, name: e.target.value })}
+                  placeholder="e.g. Pet Care"
+                  onKeyDown={e => e.key === 'Enter' && addCategory()}
+                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white" autoFocus />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Color</label>
+                <div className="flex gap-1 flex-wrap">
+                  {COLOR_OPTIONS.map(c => (
+                    <button key={c.value} onClick={() => setAddForm({ ...addForm, color: c.value })}
+                      className={`w-6 h-6 rounded-full border-2 transition-transform ${
+                        addForm.color === c.value ? 'border-white scale-125' : 'border-transparent hover:scale-110'
+                      }`}
+                      style={{ backgroundColor: c.value }} title={c.label} />
+                  ))}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={addCategory}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-sm text-white font-medium">
+                  Add
+                </button>
+                <button onClick={() => { setShowAdd(false); setCatError(''); }}
+                  className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg text-sm text-white">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {catError && (
+          <div className="mb-3 text-sm text-red-400 bg-red-400/10 rounded-lg px-3 py-2">{catError}</div>
+        )}
+
+        {/* Category list */}
+        <div className="grid gap-2">
+          {categories.map(cat => (
+            <div key={cat.id} className="flex items-center gap-3 bg-gray-800 rounded-lg px-3 py-2.5 group">
+              {editingId === cat.id ? (
+                <>
+                  {/* Editing mode */}
+                  <div className="flex gap-1">
+                    {ICON_OPTIONS.slice(0, 12).map(icon => (
+                      <button key={icon} onClick={() => setEditForm({ ...editForm, icon })}
+                        className={`w-7 h-7 rounded text-sm flex items-center justify-center ${
+                          editForm.icon === icon ? 'bg-emerald-600 ring-1 ring-emerald-400' : 'bg-gray-700 hover:bg-gray-600'
+                        }`}>
+                        {icon}
+                      </button>
+                    ))}
+                  </div>
+                  <input value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })}
+                    onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') cancelEdit(); }}
+                    className="flex-1 bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-white" autoFocus />
+                  <div className="flex gap-1">
+                    {COLOR_OPTIONS.map(c => (
+                      <button key={c.value} onClick={() => setEditForm({ ...editForm, color: c.value })}
+                        className={`w-5 h-5 rounded-full border-2 ${
+                          editForm.color === c.value ? 'border-white scale-125' : 'border-transparent'
+                        }`}
+                        style={{ backgroundColor: c.value }} />
+                    ))}
+                  </div>
+                  <button onClick={saveEdit} className="text-emerald-400 hover:text-emerald-300 text-xs font-medium px-2">Save</button>
+                  <button onClick={cancelEdit} className="text-gray-500 hover:text-gray-300 text-xs px-2">Cancel</button>
+                </>
+              ) : (
+                <>
+                  {/* Display mode */}
+                  <span className="text-lg w-7 text-center">{cat.icon || '📁'}</span>
+                  <span className="flex-1 text-sm text-white font-medium">{cat.name}</span>
+                  <span className="w-3 h-3 rounded-full" style={{ backgroundColor: cat.color || '#6b7280' }} />
+                  <button onClick={() => startEdit(cat)}
+                    className="text-gray-500 hover:text-white text-xs px-2 py-1 rounded hover:bg-gray-700 transition-colors">
+                    Edit
+                  </button>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* Add rule */}
       <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">

@@ -108,6 +108,12 @@ function migrate() {
       UNIQUE(user_id, category)
     );
 
+    CREATE TABLE IF NOT EXISTS sessions (
+      token TEXT PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(transaction_date);
     CREATE INDEX IF NOT EXISTS idx_transactions_category ON transactions(category);
     CREATE INDEX IF NOT EXISTS idx_transactions_account ON transactions(account_id);
@@ -137,6 +143,7 @@ function migrate() {
     ['transactions', 'user_id', 'INTEGER DEFAULT 1'],
     ['audit_log', 'user_id', 'INTEGER DEFAULT 1'],
     ['budgets', 'user_id', 'INTEGER DEFAULT 1'],
+    ['users', 'pin_hash', 'TEXT'],
   ];
   for (const [table, col, type] of alterStatements) {
     try { db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${type}`); } catch (e) { /* column already exists */ }
@@ -186,6 +193,21 @@ function migrate() {
     UPDATE budgets SET user_id = 1 WHERE user_id IS NULL;
     UPDATE audit_log SET user_id = 1 WHERE user_id IS NULL;
   `);
+
+  // Fix any amounts stored as floats (dollars) instead of integer cents
+  db.exec(`
+    UPDATE transactions SET amount = CAST(amount * 100 AS INTEGER)
+    WHERE typeof(amount) != 'integer';
+  `);
+
+  // Ensure categories used in transactions exist in categories table
+  const missingCats = [
+    { name: 'Housing', color: '#eab308', icon: '🏠' },
+    { name: 'Transfers', color: '#0ea5e9', icon: '🔄' },
+    { name: 'Ignore', color: '#6b7280', icon: '🚫' },
+  ];
+  const insertCat = db.prepare('INSERT OR IGNORE INTO categories (name, color, icon) VALUES (?, ?, ?)');
+  for (const c of missingCats) insertCat.run(c.name, c.color, c.icon);
 }
 
 function seedCategories() {

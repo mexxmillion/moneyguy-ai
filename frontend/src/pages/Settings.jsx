@@ -1,5 +1,57 @@
-import { apiFetch } from '../UserContext';
+import { apiFetch, useUser } from '../UserContext';
 import { useState, useEffect } from 'react';
+
+function PinSection() {
+  const { userId } = useUser();
+  const [currentPin, setCurrentPin] = useState('');
+  const [newPin, setNewPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
+  const [status, setStatus] = useState(null);
+
+  async function handleChangePin() {
+    setStatus(null);
+    if (newPin.length < 4) { setStatus({ type: 'error', message: 'PIN must be at least 4 characters' }); return; }
+    if (newPin !== confirmPin) { setStatus({ type: 'error', message: 'PINs do not match' }); return; }
+    try {
+      const res = await fetch('/api/auth/set-pin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, pin: newPin, current_pin: currentPin }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setStatus({ type: 'error', message: data.error }); return; }
+      setStatus({ type: 'success', message: 'PIN changed successfully' });
+      setCurrentPin(''); setNewPin(''); setConfirmPin('');
+    } catch {
+      setStatus({ type: 'error', message: 'Connection error' });
+    }
+  }
+
+  return (
+    <div className="bg-gray-800 rounded-xl p-5 mb-6">
+      <h2 className="text-lg font-semibold text-white mb-4">Change PIN</h2>
+      <div className="space-y-3 max-w-xs">
+        <input type="password" placeholder="Current PIN" value={currentPin} onChange={e => setCurrentPin(e.target.value)}
+          className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 border border-gray-600 placeholder-gray-500" />
+        <input type="password" placeholder="New PIN" value={newPin} onChange={e => setNewPin(e.target.value)}
+          className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 border border-gray-600 placeholder-gray-500" />
+        <input type="password" placeholder="Confirm New PIN" value={confirmPin} onChange={e => setConfirmPin(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && handleChangePin()}
+          className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 border border-gray-600 placeholder-gray-500" />
+        <button onClick={handleChangePin} disabled={!currentPin || !newPin || !confirmPin}
+          className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium">
+          Update PIN
+        </button>
+      </div>
+      {status && (
+        <div className={`mt-3 text-sm px-3 py-2 rounded-lg max-w-xs ${status.type === 'error' ? 'bg-red-900 text-red-300' : 'bg-green-900 text-green-300'}`}>
+          {status.message}
+        </div>
+      )}
+      <p className="text-gray-500 text-xs mt-3">You can also change your PIN via Telegram: /changepin &lt;old&gt; &lt;new&gt;</p>
+    </div>
+  );
+}
 
 export default function Settings() {
   const [stats, setStats] = useState(null);
@@ -67,6 +119,9 @@ export default function Settings() {
           )}
         </div>
       )}
+
+      {/* Change PIN */}
+      <PinSection />
 
       {/* Danger Zone */}
       <div className="bg-gray-800 rounded-xl p-5 border border-red-800">

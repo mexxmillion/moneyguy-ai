@@ -1,5 +1,6 @@
 require('dotenv').config({ path: require('path').join(__dirname, '..', '..', '.env') });
 
+const crypto = require('crypto');
 const TelegramBot = require('node-telegram-bot-api');
 const { queryAI, executeQuery, summarizeResults } = require('./ai');
 const { parsePdf, parseCsv, parseImageTransactions, deduplicateTransactions } = require('./parser');
@@ -260,7 +261,10 @@ function registerBotHandlers(bot, user) {
       'Commands:\n' +
       '/start - this help\n' +
       '/summary - this month spending by category\n' +
-      '/top - top 10 merchants all time'
+      '/top - top 10 merchants all time\n' +
+      '/setpin <pin> - set web login PIN\n' +
+      '/changepin <old> <new> - change PIN\n' +
+      '/resetpin - clear PIN for recovery'
     );
   });
 
@@ -300,6 +304,69 @@ function registerBotHandlers(bot, user) {
     } catch (err) {
       bot.sendMessage(chatId, '❌ Error: ' + err.message);
     }
+  });
+
+  // /setpin <pin> — set or change web login PIN
+  bot.onText(/\/setpin(?:\s+(.+))?/, (msg, match) => {
+    if (!isAuthorized(msg)) return bot.sendMessage(msg.chat.id, '🚫 Unauthorized.');
+    const chatId = msg.chat.id;
+    const newPin = match[1]?.trim();
+
+    if (!newPin || newPin.length < 4) {
+      return bot.sendMessage(chatId, '🔐 Usage: /setpin <pin>\nPIN must be at least 4 characters.\nThis sets your web app login PIN.');
+    }
+
+    const u = db.prepare('SELECT pin_hash FROM users WHERE id = ?').get(userId);
+    if (u && u.pin_hash) {
+      return bot.sendMessage(chatId, '🔐 PIN is already set. Use /changepin <old> <new> to change it.');
+    }
+
+    const hash = crypto.createHash('sha256').update(newPin).digest('hex');
+    db.prepare('UPDATE users SET pin_hash = ? WHERE id = ?').run(hash, userId);
+    bot.sendMessage(chatId, '✅ Web login PIN set! You can now log in at the web app.');
+  });
+
+  // /changepin <old> <new> — change web login PIN
+  bot.onText(/\/changepin(?:\s+(.+))?/, (msg, match) => {
+    if (!isAuthorized(msg)) return bot.sendMessage(msg.chat.id, '🚫 Unauthorized.');
+    const chatId = msg.chat.id;
+    const args = match[1]?.trim().split(/\s+/);
+
+    if (!args || args.length < 2) {
+      return bot.sendMessage(chatId, '🔐 Usage: /changepin <current_pin> <new_pin>\nNew PIN must be at least 4 characters.');
+    }
+
+    const [oldPin, newPinVal] = args;
+    if (newPinVal.length < 4) {
+      return bot.sendMessage(chatId, '❌ New PIN must be at least 4 characters.');
+    }
+
+    const u = db.prepare('SELECT pin_hash FROM users WHERE id = ?').get(userId);
+    if (!u || !u.pin_hash) {
+      return bot.sendMessage(chatId, '🔐 No PIN set yet. Use /setpin <pin> first.');
+    }
+
+    const oldHash = crypto.createHash('sha256').update(oldPin).digest('hex');
+    if (oldHash !== u.pin_hash) {
+      return bot.sendMessage(chatId, '❌ Incorrect current PIN.');
+    }
+
+    const newHash = crypto.createHash('sha256').update(newPinVal).digest('hex');
+    db.prepare('UPDATE users SET pin_hash = ? WHERE id = ?').run(newHash, userId);
+
+    // Invalidate all web sessions for this user
+    db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId);
+
+    bot.sendMessage(chatId, '✅ PIN changed! All web sessions have been logged out.');
+  });
+
+  // /resetpin — clear PIN (for recovery)
+  bot.onText(/\/resetpin/, (msg) => {
+    if (!isAuthorized(msg)) return bot.sendMessage(msg.chat.id, '🚫 Unauthorized.');
+    const chatId = msg.chat.id;
+    db.prepare('UPDATE users SET pin_hash = NULL WHERE id = ?').run(userId);
+    db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId);
+    bot.sendMessage(chatId, '✅ PIN cleared. You can set a new one with /setpin <pin> or through the web app.');
   });
 
   // Handle photos (compressed screenshots)
@@ -482,6 +549,17 @@ function startBotForUser(user) {
     const bot = new TelegramBot(user.telegram_bot_token, { polling: true });
     activeBots.set(user.telegram_bot_token, bot);
     registerBotHandlers(bot, user);
+
+    // Register slash commands in Telegram's menu
+    bot.setMyCommands([
+      { command: 'start', description: 'Help & getting started' },
+      { command: 'summary', description: 'This month spending by category' },
+      { command: 'top', description: 'Top 10 merchants all time' },
+      { command: 'setpin', description: 'Set web login PIN' },
+      { command: 'changepin', description: 'Change web login PIN' },
+      { command: 'resetpin', description: 'Clear PIN for recovery' },
+    ]).catch(() => {});
+
     console.log(`🤖 Bot started for ${user.name} (user ${user.id})`);
   } catch (err) {
     console.error(`Failed to start bot for ${user.name}:`, err.message);

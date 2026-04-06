@@ -6,18 +6,27 @@ const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3002;
+const db = require('./db');
 
 app.use(cors());
 app.use(express.json());
 
-// Multi-user middleware: read X-User-Id header, default to 1
-app.use((req, res, next) => {
-  req.userId = parseInt(req.headers['x-user-id']) || 1;
+// Auth routes (no session required)
+app.use('/api/auth', require('./routes/auth'));
+
+// Session auth middleware — all /api/* routes below require a valid session
+app.use('/api', (req, res, next) => {
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  if (!token) return res.status(401).json({ error: 'Authentication required' });
+
+  const session = db.prepare('SELECT user_id FROM sessions WHERE token = ?').get(token);
+  if (!session) return res.status(401).json({ error: 'Invalid or expired session' });
+
+  req.userId = session.user_id;
   next();
 });
 
-// Users API
-const db = require('./db');
+// Legacy users API (now behind auth)
 app.get('/api/users', (req, res) => {
   const users = db.prepare('SELECT id, name, emoji FROM users ORDER BY id').all();
   res.json(users);
