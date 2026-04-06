@@ -45,12 +45,12 @@ function dollars(n) {
 }
 
 export default function ClientTrends() {
-  const [filters, setFilters] = useState(() => getPresetDates({ all: true }));
+  const [filters, setFilters] = useState(() => getPresetDates({ days: 90 }));
   const [groupBy, setGroupBy] = useState('month');
   const [accounts, setAccounts] = useState([]);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [activePreset, setActivePreset] = useState('All time');
+  const [activePreset, setActivePreset] = useState('Last 90d');
   const [cumulative, setCumulative] = useState(false);
 
   useEffect(() => {
@@ -64,10 +64,12 @@ export default function ClientTrends() {
     setLoading(true);
     const params = new URLSearchParams({ group_by: groupBy });
     Object.entries(filters).forEach(([k, v]) => { if (v) params.set(k, v); });
-    fetch(`/api/transactions/trends?${params}`)
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
+    fetch(`/api/transactions/trends?${params}`, { signal: controller.signal })
       .then(r => r.json())
-      .then(d => { setData(d); setLoading(false); })
-      .catch(() => setLoading(false));
+      .then(d => { clearTimeout(timer); setData(d); setLoading(false); })
+      .catch(err => { clearTimeout(timer); if (err.name !== 'AbortError') console.error('Trends fetch error:', err); setLoading(false); });
   }, [JSON.stringify(filters), groupBy]);
 
   const setPreset = p => {
