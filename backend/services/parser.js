@@ -104,10 +104,128 @@ function extractMerchant(description) {
     .trim();
 }
 
-async function parsePdf(buffer) {
+const EXTRACT_PROMPT = `Extract ALL financial transactions from this bank/credit card statement. Return ONLY a JSON array, no explanation, no markdown fences.
+
+Each item must have:
+- transaction_date: string YYYY-MM-DD
+- description: string (merchant name + details)
+- amount: integer in cents (e.g. $18.74 = 1874), always positive
+- currency: string (CAD or USD)
+- is_credit: boolean (true for payments/refunds/credits, false for purchases/debits)
+
+Include every transaction. Do not skip any.`;
+
+async function callOpenRouter(messages, apiKey, model) {
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model, messages, temperature: 0.1 }),
+  });
+  const data = await response.json();
+  return data.choices?.[0]?.message?.content || '';
+}
+
+function parseTransactionJSON(content) {
+  const jsonMatch = content.match(/\[[\s\S]*\]/);
+  if (!jsonMatch) return [];
+  const parsed = JSON.parse(jsonMatch[0]);
+  return parsed.map(t => ({
+    transaction_date: t.transaction_date,
+    posting_date: null,
+    description: String(t.description || '').trim(),
+    merchant_name: extractMerchant(String(t.description || '')),
+    amount: t.is_credit ? -Math.abs(t.amount) : Math.abs(t.amount),
+    currency: t.currency || 'CAD',
+  })).filter(t => t.description && t.amount !== 0);
+}
+
+// Stage 1: text extraction via gpt-4o-mini (cheap)
+async function parsePdfWithAI(rawText, apiKey) {
+  try {
+    console.log('Stage 1: AI text extraction...');
+    const content = await callOpenRouter([
+      { role: 'system', content: 'You are a financial data extraction assistant. Return ONLY a JSON array, nothing else.' },
+      { role: 'user', content: EXTRACT_PROMPT + '\n\nStatement text:\n' + rawText.substring(0, 12000) }
+    ], apiKey, 'openai/gpt-4.1-nano');
+    const transactions = parseTransactionJSON(content);
+    console.log('Stage 1 extracted', transactions.length, 'transactions');
+    return transactions;
+  } catch (err) {
+    console.error('Stage 1 AI parse error:', err.message);
+    return [];
+  }
+}
+
+// Stage 2: native PDF model — Gemini reads the PDF directly as a file
+async function parsePdfWithGemini(buffer, apiKey, model = 'google/gemini-2.5-flash-preview') {
+  try {
+    console.log('Stage 2: Gemini native PDF model...');
+    const base64 = buffer.toString('base64');
+    // Gemini 1.5 Flash supports native PDF input via file_data
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model,
+        temperature: 0.1,
+        messages: [{
+          role: 'user',
+          content: [
+            {
+              type: 'file',
+              file: {
+                filename: 'statement.pdf',
+                file_data: `data:application/pdf;base64,${base64}`
+              }
+            },
+            {
+              type: 'text',
+              text: EXTRACT_PROMPT
+            }
+          ]
+        }]
+      })
+    });
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || '';
+    const transactions = parseTransactionJSON(content);
+    console.log('Stage 2 (Gemini) extracted', transactions.length, 'transactions');
+    return transactions;
+  } catch (err) {
+    console.error('Stage 2 Gemini parse error:', err.message);
+    return [];
+  }
+}
+
+async function parsePdf(buffer, apiKey) {
   const data = await pdfParse(buffer);
   const rawText = data.text;
-  const transactions = parseRBCPdf(rawText);
+
+  if (!apiKey) {
+    return { rawText, transactions: parseRBCPdf(rawText) };
+  }
+
+  // Stage 1: GPT-4.1 Nano reads extracted text (fast, cheap)
+  let transactions = await parsePdfWithAI(rawText, apiKey);
+
+  // Stage 2: Gemini 2.5 Flash — native PDF understanding
+  if (transactions.length === 0) {
+    console.log('Stage 1 got nothing — trying Gemini 2.5 Flash');
+    transactions = await parsePdfWithGemini(buffer, apiKey, 'google/gemini-2.5-flash-preview');
+  }
+
+  // Stage 3: Gemini 2.5 Pro — maximum accuracy
+  if (transactions.length === 0) {
+    console.log('Stage 2 got nothing — escalating to Gemini 2.5 Pro');
+    transactions = await parsePdfWithGemini(buffer, apiKey, 'google/gemini-2.5-pro-preview-03-25');
+  }
+
+  // Stage 4: report failure
+  if (transactions.length === 0) {
+    console.error('All stages failed — could not extract transactions from PDF');
+    return { rawText, transactions: [], error: 'Could not extract transactions after 3 attempts. Please try a different file format or contact support.' };
+  }
+
   return { rawText, transactions };
 }
 
@@ -232,4 +350,40 @@ function deduplicateTransactions(newTransactions) {
   return { inserted, duplicates, flagged };
 }
 
-module.exports = { parsePdf, parseCsv, parseRBCPdf, parseImageTransactions, deduplicateTransactions };
+const METADATA_PROMPT = `Extract account and statement metadata from this bank/credit card statement. Return ONLY a JSON object, no explanation, no markdown fences.
+
+The object must have these fields (use null if not found):
+- account_holder: string (full name on statement)
+- institution: string (bank name, e.g. "RBC Royal Bank", "TD Canada Trust")
+- account_type: "credit" | "debit" | "investment"
+- card_type: string (Visa, Mastercard, Amex, etc) or null
+- account_number_last4: string (last 4 digits of account/card number) or null
+- statement_period_start: string YYYY-MM-DD
+- statement_period_end: string YYYY-MM-DD
+- opening_balance: integer in cents (e.g. $696.51 = 69651)
+- closing_balance: integer in cents
+- total_debits: integer in cents (total purchases/charges)
+- total_credits: integer in cents (total payments/refunds)
+- minimum_payment: integer in cents or null
+- payment_due_date: string YYYY-MM-DD or null
+- credit_limit: integer in cents or null
+- available_credit: integer in cents or null
+- currency: string (CAD or USD)`;
+
+async function extractStatementMetadata(rawText, apiKey) {
+  try {
+    const content = await callOpenRouter([
+      { role: 'system', content: 'You are a financial data extraction assistant. Return ONLY a JSON object, nothing else.' },
+      { role: 'user', content: METADATA_PROMPT + '\n\nStatement text:\n' + rawText.substring(0, 12000) }
+    ], apiKey, 'openai/gpt-4.1-nano');
+
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return null;
+    return JSON.parse(jsonMatch[0]);
+  } catch (err) {
+    console.error('Metadata extraction error:', err.message);
+    return null;
+  }
+}
+
+module.exports = { parsePdf, parseCsv, parseRBCPdf, parseImageTransactions, deduplicateTransactions, extractStatementMetadata };

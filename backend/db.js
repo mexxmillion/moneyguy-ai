@@ -14,7 +14,11 @@ function migrate() {
       name TEXT NOT NULL,
       institution TEXT,
       type TEXT CHECK(type IN ('credit','debit','investment')) NOT NULL DEFAULT 'credit',
-      currency TEXT NOT NULL DEFAULT 'CAD'
+      currency TEXT NOT NULL DEFAULT 'CAD',
+      account_number_last4 TEXT,
+      card_type TEXT,
+      credit_limit INTEGER,
+      is_active INTEGER DEFAULT 1
     );
 
     CREATE TABLE IF NOT EXISTS categories (
@@ -31,6 +35,17 @@ function migrate() {
       filename TEXT NOT NULL,
       period_start TEXT,
       period_end TEXT,
+      opening_balance INTEGER,
+      closing_balance INTEGER,
+      total_debits INTEGER,
+      total_credits INTEGER,
+      minimum_payment INTEGER,
+      payment_due_date TEXT,
+      credit_limit INTEGER,
+      available_credit INTEGER,
+      source_file_path TEXT,
+      source_file_hash TEXT,
+      imported_by TEXT DEFAULT 'web',
       imported_at TEXT NOT NULL DEFAULT (datetime('now')),
       raw_text TEXT
     );
@@ -59,10 +74,48 @@ function migrate() {
       priority INTEGER NOT NULL DEFAULT 0
     );
 
+    CREATE TABLE IF NOT EXISTS audit_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      event_type TEXT NOT NULL,
+      entity_type TEXT,
+      entity_id INTEGER,
+      description TEXT NOT NULL,
+      metadata TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(transaction_date);
     CREATE INDEX IF NOT EXISTS idx_transactions_category ON transactions(category);
     CREATE INDEX IF NOT EXISTS idx_transactions_account ON transactions(account_id);
     CREATE INDEX IF NOT EXISTS idx_transactions_merchant ON transactions(merchant_name);
+  `);
+
+  // ALTER TABLE migrations for existing databases
+  const alterStatements = [
+    ['statements', 'opening_balance', 'INTEGER'],
+    ['statements', 'closing_balance', 'INTEGER'],
+    ['statements', 'total_debits', 'INTEGER'],
+    ['statements', 'total_credits', 'INTEGER'],
+    ['statements', 'minimum_payment', 'INTEGER'],
+    ['statements', 'payment_due_date', 'TEXT'],
+    ['statements', 'credit_limit', 'INTEGER'],
+    ['statements', 'available_credit', 'INTEGER'],
+    ['statements', 'source_file_path', 'TEXT'],
+    ['statements', 'source_file_hash', 'TEXT'],
+    ['statements', 'imported_by', "TEXT DEFAULT 'web'"],
+    ['accounts', 'account_number_last4', 'TEXT'],
+    ['accounts', 'card_type', 'TEXT'],
+    ['accounts', 'credit_limit', 'INTEGER'],
+    ['accounts', 'is_active', 'INTEGER DEFAULT 1'],
+  ];
+  for (const [table, col, type] of alterStatements) {
+    try { db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${type}`); } catch (e) { /* column already exists */ }
+  }
+
+  // Indexes that depend on ALTERed columns (must run after ALTER block)
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_statements_hash ON statements(source_file_hash);
+    CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at);
   `);
 }
 

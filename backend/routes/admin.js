@@ -49,4 +49,25 @@ router.post('/reset', (req, res) => {
   }
 });
 
+// GET /api/admin/audit — list recent audit log entries
+router.get('/audit', (req, res) => {
+  const page = Math.max(1, parseInt(req.query.page) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));
+  const offset = (page - 1) * limit;
+
+  const total = db.prepare('SELECT COUNT(*) as count FROM audit_log').get().count;
+  const entries = db.prepare(
+    'SELECT * FROM audit_log ORDER BY created_at DESC LIMIT ? OFFSET ?'
+  ).all(limit, offset);
+
+  // Parse metadata JSON for convenience
+  for (const entry of entries) {
+    if (entry.metadata) {
+      try { entry.metadata = JSON.parse(entry.metadata); } catch (e) { /* keep as string */ }
+    }
+  }
+
+  res.json({ entries, total, page, limit, pages: Math.ceil(total / limit) });
+});
+
 module.exports = router;

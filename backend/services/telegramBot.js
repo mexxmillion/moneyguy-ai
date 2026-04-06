@@ -220,14 +220,87 @@ async function processAndInsert(transactions, filename, accountId, notes) {
     insertMany(toInsert);
   }
 
-  return { imported: inserted.length, duplicates: duplicates.length, flagged: flagged.length };
+  return {
+    imported: inserted.length,
+    duplicates: duplicates.length,
+    flagged: flagged.length,
+    transactions: toInsert, // actual transactions for display
+  };
 }
 
 function formatImportSummary(stats) {
-  const parts = [`✅ Imported ${stats.imported} new transactions`];
+  const parts = [];
+
+  if (stats.alreadyImported) {
+    parts.push('⏭️ Already seen this file!');
+    if (stats.firstImportedAt) parts.push(`First imported: ${stats.firstImportedAt}`);
+    if (stats.accountName) parts.push(`Account: ${stats.accountName}`);
+    if (stats.period) parts.push(`Period: ${stats.period}`);
+    parts.push('Nothing new added.');
+    return parts.join('\n');
+  }
+
+  // Account info
+  if (stats.accountName) {
+    parts.push(`🏦 Account: ${stats.accountName}${stats.isNewAccount ? ' (new)' : ''}`);
+  }
+
+  // Statement period
+  if (stats.period) {
+    parts.push(`📅 Period: ${stats.period}`);
+  }
+
+  // Balances
+  if (stats.closingBalance !== undefined) {
+    parts.push(`💳 Balance: ${formatAmount(stats.closingBalance)}`);
+  }
+  if (stats.paymentDueDate) {
+    parts.push(`⏰ Due: ${stats.paymentDueDate} — min ${formatAmount(stats.minimumPayment || 0)}`);
+  }
+
+  parts.push('');
+
+  // Transaction counts
+  parts.push(`✅ Imported ${stats.imported} new transactions`);
   if (stats.duplicates > 0) parts.push(`⏭️ ${stats.duplicates} duplicates skipped`);
   if (stats.flagged > 0) parts.push(`⚠️ ${stats.flagged} flagged for review`);
-  if (stats.error) parts.push(`❌ ${stats.error}`);
+
+  // Show transaction highlights
+  if (stats.transactions && stats.transactions.length > 0) {
+    const txns = stats.transactions;
+    parts.push('');
+
+    if (txns.length <= 8) {
+      // Small — show all
+      parts.push('📋 Transactions:');
+      txns.forEach(t => {
+        const sign = t.amount < 0 ? '-' : '';
+        parts.push(`  ${t.transaction_date} | ${t.merchant_name || t.description} | ${sign}${formatAmount(Math.abs(t.amount))} | ${t.category || '—'}`);
+      });
+    } else {
+      // Large — show highlights only
+      const biggest = [...txns].sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount)).slice(0, 3);
+      const byCategory = txns.reduce((acc, t) => {
+        const cat = t.category || 'Other';
+        acc[cat] = (acc[cat] || 0) + Math.abs(t.amount);
+        return acc;
+      }, {});
+      const topCats = Object.entries(byCategory).sort((a, b) => b[1] - a[1]).slice(0, 4);
+      const total = txns.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
+
+      parts.push(`💸 Total spent: ${formatAmount(total)}`);
+      parts.push('');
+      parts.push('🏆 Top categories:');
+      topCats.forEach(([cat, amt]) => parts.push(`  ${cat}: ${formatAmount(amt)}`));
+      parts.push('');
+      parts.push('🔥 Biggest purchases:');
+      biggest.forEach(t => parts.push(`  ${t.transaction_date} | ${t.merchant_name || t.description} | ${formatAmount(Math.abs(t.amount))}`) );
+      parts.push(`
+📊 Full details at http://100.90.81.105:5173`);
+    }
+  }
+
+  if (stats.error) parts.push(`\n❌ ${stats.error}`);
   return parts.join('\n');
 }
 
