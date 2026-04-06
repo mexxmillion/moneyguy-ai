@@ -26,12 +26,15 @@ export default function ClientAccounts() {
   const [open, setOpen] = useState({});
 
   useEffect(() => {
-    fetch('/api/accounts').then(r => r.json()).then(p => {
-      setData(p);
-      const init = {};
-      for (const g of p.groups || []) init[g.key] = true;
-      setOpen(init);
-    });
+    fetch('/api/accounts')
+      .then(r => r.json())
+      .then(p => {
+        setData(p);
+        const init = {};
+        for (const g of p.groups || []) init[g.key] = true;
+        setOpen(init);
+      })
+      .catch(err => console.error('Accounts load error:', err));
   }, []);
 
   if (!data) return <AppShell title="Accounts"><div className="text-sm text-[var(--muted)]">Loading…</div></AppShell>;
