@@ -115,14 +115,21 @@ Each item must have:
 
 Include every transaction. Do not skip any.`;
 
-async function callOpenRouter(messages, apiKey, model) {
-  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, messages, temperature: 0.1 }),
-  });
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content || '';
+async function callOpenRouter(messages, apiKey, model, timeoutMs = 45000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, messages, temperature: 0.1 }),
+      signal: controller.signal,
+    });
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content || '';
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function parseTransactionJSON(content) {
