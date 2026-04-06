@@ -4,18 +4,21 @@ const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 const SCHEMA_DESCRIPTION = `
 Database schema:
-- accounts (id, name, institution, type: credit/debit/investment, currency)
-- statements (id, account_id, filename, period_start, period_end, imported_at, raw_text)
+- accounts (id, name, institution, type: credit/debit/investment, currency, account_number_last4, card_type, credit_limit INTEGER cents, is_active)
+- statements (id, account_id, filename, period_start, period_end, opening_balance, closing_balance, total_debits, total_credits, minimum_payment, payment_due_date, credit_limit, available_credit, imported_at, source_file_hash)
 - transactions (id, statement_id, account_id, transaction_date, posting_date, description, merchant_name, amount INTEGER in cents, currency, category, subcategory, is_reviewed, notes, created_at)
 - categories (id, name, parent_id, color, icon)
 - merchant_rules (id, merchant_pattern, category_id, priority)
+- audit_log (id, event_type, entity_type, entity_id, description, metadata, created_at)
 
-IMPORTANT: amounts are stored as integers in cents. To display dollars, divide by 100.
+IMPORTANT: amounts are stored as integers in cents. To display dollars, divide by 100.0.
+When user asks for account details, SELECT all relevant columns: name, institution, type, account_number_last4, card_type, credit_limit/100.0, currency.
+When user asks for statement details, include period_start, period_end, closing_balance/100.0, payment_due_date, minimum_payment/100.0.
 Categories include: Groceries, Dining, Transport/Parking, Subscriptions, Shopping, Entertainment, Auto/Mechanic, Interest/Fees, Payments, Uncategorized.
 `;
 
 async function queryAI(userQuestion, apiKey) {
-  const systemPrompt = `You are a personal finance SQL assistant. The user will ask questions about their spending.
+  const systemPrompt = `You are MoneyGuy's SQL brain. Convert the user's finance question into a precise SQLite query.
 You must respond with a JSON object containing:
 - "sql": a safe, READ-ONLY SQLite query (SELECT only, no INSERT/UPDATE/DELETE/DROP)
 - "explanation": a brief explanation of what you're querying
@@ -100,7 +103,7 @@ async function summarizeResults(question, rows, sql, apiKey) {
     body: JSON.stringify({
       model: 'openai/gpt-4.1-nano',
       messages: [
-        { role: 'system', content: 'You are a helpful finance assistant. Summarize the query results in a clear, conversational way. Mention specific numbers and totals. Be concise.' },
+        { role: 'system', content: `You are MoneyGuy — sharp, direct, zero fluff. Lead with the answer. When the user asks for details, LIST them specifically: account name, institution, type, last 4 digits, credit limit, balance, etc — whatever is available in the data. Format as a clean bullet list for multiple items. Numbers first, commentary only if it actually matters (overspending, interest, something suspicious). No cheerleading, no filler. Speak human, not database — never say "1 row" or show raw field names like "account_number_last4". Use $ signs and real names.` },
         { role: 'user', content: `Question: ${question}\nSQL: ${sql}\nResults (${rows.length} rows): ${preview}` },
       ],
       temperature: 0.3,

@@ -363,9 +363,9 @@ bot.on('document', async (msg) => {
     // PDF
     if (ext === '.pdf' || mime === 'application/pdf') {
       const buffer = fs.readFileSync(tmpFile);
-      const result = await parsePdf(buffer);
+      const result = await parsePdf(buffer, OPENROUTER_API_KEY);
       if (result.transactions.length === 0) {
-        return bot.sendMessage(chatId, '⚠️ No transactions found in this PDF.');
+        return bot.sendMessage(chatId, '⚠️ No transactions found in this PDF.' + (result.error ? '\n' + result.error : ''));
       }
       const stats = await processAndInsert(result.transactions, filename, account.id, null);
       return bot.sendMessage(chatId, formatImportSummary(stats));
@@ -395,7 +395,7 @@ bot.on('document', async (msg) => {
         try {
           fs.writeFileSync(entryPath, entry.getData());
           let result;
-          if (entryExt === '.pdf') result = await parsePdf(entry.getData());
+          if (entryExt === '.pdf') result = await parsePdf(entry.getData(), OPENROUTER_API_KEY);
           else if (entryExt === '.csv') result = parseCsv(entry.getData());
           else continue;
 
@@ -455,8 +455,15 @@ bot.on('message', async (msg) => {
       await bot.sendDocument(chatId, pdfPath, { caption: summary });
       fs.unlink(pdfPath, () => {});
     } else {
-      const tableText = formatRows(rows);
-      const reply = summary + '\n\n' + tableText + '\n\n(' + rows.length + ' rows)';
+      // Only show raw rows for transaction lists, never for account/summary queries
+      const isTransactionList = rows.length > 0 && rows[0].transaction_date && rows.length > 1;
+
+      let reply = summary;
+      if (isTransactionList) {
+        reply += '\n\n' + formatRows(rows);
+        if (rows.length > 15) reply += '\n\n(' + rows.length + ' total — send "as pdf" for full list)';
+      }
+
       bot.editMessageText(reply, {
         chat_id: chatId,
         message_id: thinkingMsg.message_id

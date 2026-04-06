@@ -198,8 +198,13 @@ async function parsePdfWithGemini(buffer, apiKey, model = 'google/gemini-2.5-fla
 }
 
 async function parsePdf(buffer, apiKey) {
-  const data = await pdfParse(buffer);
-  const rawText = data.text;
+  let rawText = '';
+  try {
+    const data = await pdfParse(buffer);
+    rawText = data.text || '';
+  } catch (err) {
+    console.log('pdf-parse failed:', err.message, '— skipping text extraction, going straight to AI vision');
+  }
 
   if (!apiKey) {
     return { rawText, transactions: parseRBCPdf(rawText) };
