@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "tertiary-fixed": "#ffdad5",
+                    "on-error-container": "#93000a",
+                    "primary": "#0058bc",
+                    "surface-container-high": "#e9e7ed",
+                    "secondary": "#006e28",
+                    "secondary-fixed-dim": "#53e16f",
+                    "on-tertiary": "#ffffff",
+                    "on-secondary-container": "#00732a",
+                    "on-error": "#ffffff",
+                    "on-tertiary-fixed": "#410001",
+                    "tertiary-container": "#e2241f",
+                    "error": "#ba1a1a",
+                    "surface-container-highest": "#e3e2e7",
+                    "outline": "#717786",
+                    "surface-container": "#eeedf3",
+                    "on-primary-container": "#fefcff",
+                    "inverse-primary": "#adc6ff",
+                    "background": "#faf9fe",
+                    "tertiary-fixed-dim": "#ffb4aa",
+                    "primary-fixed-dim": "#adc6ff",
+                    "on-surface": "#1a1b1f",
+                    "surface-container-low": "#f4f3f8",
+                    "on-primary": "#ffffff",
+                    "secondary-fixed": "#72fe88",
+                    "surface-bright": "#faf9fe",
+                    "inverse-on-surface": "#f1f0f5",
+                    "on-primary-fixed": "#001a41",
+                    "on-background": "#1a1b1f",
+                    "primary-fixed": "#d8e2ff",
+                    "on-secondary-fixed": "#002107",
+                    "surface-variant": "#e3e2e7",
+                    "secondary-container": "#6ffb85",
+                    "outline-variant": "#c1c6d7",
+                    "on-tertiary-container": "#fffbff",
+                    "tertiary": "#bc000a",
+                    "surface-dim": "#dad9df",
+                    "primary-container": "#0070eb",
+                    "on-secondary": "#ffffff",
+                    "surface": "#faf9fe",
+                    "error-container": "#ffdad6",
+                    "on-surface-variant": "#414755",
+                    "inverse-surface": "#2f3034",
+                    "on-primary-fixed-variant": "#004493",
+                    "on-tertiary-fixed-variant": "#930005",
+                    "surface-tint": "#005bc1",
+                    "surface-container-lowest": "#ffffff",
+                    "on-secondary-fixed-variant": "#00531c"
+            },
+            "borderRadius": {
+                    "DEFAULT": "1rem",
+                    "lg": "2rem",
+                    "xl": "3rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Inter"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        .ai-glow {
+            box-shadow: 0 0 20px rgba(0, 88, 188, 0.15);
+        }
+        .asymmetric-grid {
+            display: grid;
+            grid-template-columns: 1.5fr 1fr;
+            gap: 2rem;
+        }
+        @media (max-width: 768px) {
+            .asymmetric-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body selection:bg-primary-fixed selection:text-on-primary-fixed">
+<!-- Top Navigation Bar -->
+<nav class="fixed top-0 w-full z-50 flex items-center justify-between px-6 py-3 bg-white/70 backdrop-blur-xl shadow-sm">
+<div class="flex items-center gap-4">
+<span class="text-xl font-bold tracking-tighter text-slate-900 font-headline">Pristine Ledger</span>
+</div>
+<div class="hidden md:flex items-center gap-8">
+<a class="text-blue-600 font-semibold font-headline" href="#">Explore AI</a>
+<a class="text-slate-500 hover:bg-slate-100/50 transition-colors px-3 py-1 rounded-full" href="#">Trends</a>
+<a class="text-slate-500 hover:bg-slate-100/50 transition-colors px-3 py-1 rounded-full" href="#">Transactions</a>
+</div>
+<div class="flex items-center gap-3">
+<button class="p-2 hover:bg-slate-100/50 transition-colors rounded-full"><span class="material-symbols-outlined" data-icon="notifications">notifications</span></button>
+<button class="p-2 hover:bg-slate-100/50 transition-colors rounded-full"><span class="material-symbols-outlined" data-icon="chat_bubble">chat_bubble</span></button>
+<div class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center overflow-hidden">
+<img alt="User" data-alt="close-up portrait of a professional woman in business attire looking forward with a confident and friendly expression" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBWjVDVEz9IGuNjJRqjHXuxgNmR5xGMTxbEVQ8EE6Fv0jG-aIebhGcr_ncpurgqw1CGkLwt36e2iZSiwPqXTklQVgj8PhKEkJyb9pcre62ZkAThYABO0_fxdC7hcdqiUUPCd5u5uHMQDqjry3Y3Q6qBfkkTIgt9dts-eM9Et6SU7KV443SxPk4FBOh8I1J5zVARQWcxF33hQ_gzRivm3-dEz8uPNFRDApCeXuWypz-G8r8paK2i0Xtk6LkWUz9ca4noAa84n2Nsxuw"/>
+</div>
+</div>
+</nav>
+<!-- Main Content Shell -->
+<main class="pt-24 pb-12 px-6 max-w-7xl mx-auto">
+<!-- Hero Section: AI Search -->
+<section class="flex flex-col items-center justify-center py-12 md:py-20 text-center">
+<h1 class="text-display-lg font-black tracking-tight text-on-surface mb-8 max-w-3xl leading-none">
+                Intelligence for your <span class="text-primary italic">financial future</span>.
+            </h1>
+<div class="w-full max-w-3xl relative group">
+<div class="absolute inset-0 bg-primary/10 blur-3xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-500"></div>
+<div class="relative flex items-center bg-surface-container-lowest ai-glow border border-outline-variant/20 rounded-full p-2 shadow-sm focus-within:ring-4 focus-within:ring-primary/5 transition-all">
+<span class="material-symbols-outlined ml-4 text-primary" data-icon="auto_awesome">auto_awesome</span>
+<input class="w-full bg-transparent border-none focus:ring-0 text-xl px-4 py-4 text-on-surface placeholder:text-on-surface-variant/50 font-medium" placeholder="Ask anything about your money..." type="text"/>
+<button class="bg-primary hover:bg-primary-container text-white px-8 py-4 rounded-full font-bold text-sm tracking-wide transition-all active:scale-95 shadow-lg shadow-primary/20">
+                        SEARCH
+                    </button>
+</div>
+</div>
+<!-- Suggestions -->
+<div class="mt-10 flex flex-wrap justify-center gap-3 max-w-2xl">
+<button class="px-5 py-2.5 bg-surface-container-low hover:bg-surface-container-high text-on-surface-variant rounded-full text-sm font-medium transition-colors border border-outline-variant/10">
+                    How's my net worth doing?
+                </button>
+<button class="px-5 py-2.5 bg-surface-container-low hover:bg-surface-container-high text-on-surface-variant rounded-full text-sm font-medium transition-colors border border-outline-variant/10">
+                    Compare this month's spending to last month
+                </button>
+<button class="px-5 py-2.5 bg-surface-container-low hover:bg-surface-container-high text-on-surface-variant rounded-full text-sm font-medium transition-colors border border-outline-variant/10">
+                    What's my biggest expense?
+                </button>
+</div>
+</section>
+<!-- Results View: Asymmetric Grid -->
+<section class="asymmetric-grid mt-8">
+<!-- Primary Answer Card -->
+<div class="bg-surface-container-lowest rounded-xl p-8 shadow-sm border border-outline-variant/10 flex flex-col justify-between">
+<div>
+<div class="flex items-center gap-2 mb-6">
+<span class="px-3 py-1 bg-primary/10 text-primary text-xs font-bold rounded-full uppercase tracking-widest">AI Analysis</span>
+<span class="text-on-surface-variant text-xs">Generated 2 seconds ago</span>
+</div>
+<h2 class="text-headline-sm font-bold text-on-surface mb-4 leading-relaxed">
+                        You spent <span class="text-tertiary">$234.50</span> on Amazon last month. This is <span class="text-secondary font-bold">12% less</span> than your 6-month average.
+                    </h2>
+<p class="text-on-surface-variant leading-loose max-w-xl">
+                        Your shopping habits are trending downwards in the 'Electronics' category, which contributed to your $450 total savings this period. Consider moving this surplus into your "High-Yield Savings" account to capitalize on the current 4.5% APY.
+                    </p>
+</div>
+<!-- Simple Chart Representation -->
+<div class="mt-12">
+<div class="flex items-end gap-3 h-40">
+<div class="flex-1 bg-surface-container-high rounded-t-lg transition-all hover:bg-primary/40" style="height: 60%"></div>
+<div class="flex-1 bg-surface-container-high rounded-t-lg transition-all hover:bg-primary/40" style="height: 80%"></div>
+<div class="flex-1 bg-surface-container-high rounded-t-lg transition-all hover:bg-primary/40" style="height: 45%"></div>
+<div class="flex-1 bg-surface-container-high rounded-t-lg transition-all hover:bg-primary/40" style="height: 90%"></div>
+<div class="flex-1 bg-primary rounded-t-lg transition-all hover:bg-primary-container" style="height: 35%"></div>
+<div class="flex-1 bg-surface-container-high rounded-t-lg transition-all hover:bg-primary/40" style="height: 70%"></div>
+</div>
+<div class="flex justify-between mt-4 text-xs font-bold text-on-surface-variant tracking-widest uppercase">
+<span>Jan</span>
+<span>Feb</span>
+<span>Mar</span>
+<span>Apr</span>
+<span class="text-primary">May (Latest)</span>
+<span>Jun</span>
+</div>
+</div>
+</div>
+<!-- Supporting Context / Bento Sidebar -->
+<div class="flex flex-col gap-6">
+<!-- Mini Card: Context 1 -->
+<div class="bg-surface-container-low rounded-xl p-6 flex items-start gap-4 hover:bg-surface-container transition-colors cursor-pointer">
+<div class="w-12 h-12 bg-white rounded-lg flex items-center justify-center shadow-sm text-primary">
+<span class="material-symbols-outlined" data-icon="account_balance_wallet">account_balance_wallet</span>
+</div>
+<div>
+<h4 class="font-bold text-on-surface">Available Balance</h4>
+<p class="text-2xl font-black text-primary">$12,450.00</p>
+</div>
+</div>
+<!-- Mini Card: Context 2 -->
+<div class="bg-surface-container-low rounded-xl p-6 relative overflow-hidden group">
+<div class="relative z-10">
+<h4 class="font-bold text-on-surface mb-2">Category Health</h4>
+<div class="flex items-center gap-2 mb-4">
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+<span class="text-xs font-medium text-on-surface-variant">Shopping: Optimal</span>
+</div>
+<div class="w-full bg-white/50 h-2 rounded-full overflow-hidden">
+<div class="bg-secondary h-full rounded-full" style="width: 45%"></div>
+</div>
+</div>
+</div>
+<!-- Mini Card: Image Action -->
+<div class="rounded-xl overflow-hidden relative h-48 group">
+<img alt="Financial Planning" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" data-alt="High-end professional office space with soft daylight falling on a clean desk with a modern tablet and a glass of water, minimalist and serene financial mood" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDrBzEdJLUfYqD6QX_JIDJw6Ka97z16R8s37K7H2yZ2HYDpCe1tpY6m8pX5rDJOmlCqelUSxNwyHTPMKJe5o7PSvXJ1Tl-MOY90IDwpaVVczllj4IrpwB7Byfuh0tS_A5Fg7gwlrZl_rlPODMuQKlnJPOW6RYeQKVhMgsaEfLgTeEb-HbPzSVe4Iw9f_RrxZlqcd94GOWOh2aBfhx1rf9bcdr84gAQUlcU9u5ohA-v-GXuCsscLvb7Lvq0mm0rmxORflcyjSfEODxE"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent p-6 flex flex-col justify-end">
+<h4 class="text-white font-bold text-lg leading-tight">Plan your next investment</h4>
+<button class="mt-2 text-primary-fixed-dim text-sm font-bold flex items-center gap-1 group/btn">
+                            Explore Advice <span class="material-symbols-outlined text-sm transition-transform group-hover/btn:translate-x-1" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+<!-- AI Capabilities Section -->
+<section class="mt-24">
+<div class="flex items-end justify-between mb-10">
+<div class="max-w-xl">
+<h2 class="text-headline-sm font-black text-on-surface leading-tight mb-2">Proactive Intelligence</h2>
+<p class="text-on-surface-variant">The Ledger doesn't just answer; it anticipates. Here are a few things you can ask our advanced engine.</p>
+</div>
+<button class="hidden md:flex items-center gap-2 text-primary font-bold px-6 py-2 rounded-full border border-primary/20 hover:bg-primary/5 transition-all">
+                    View All Features
+                </button>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<!-- Feature 1 -->
+<div class="p-8 bg-surface-container-low rounded-xl hover:translate-y-[-4px] transition-all">
+<span class="material-symbols-outlined text-primary mb-4 text-3xl" data-icon="query_stats">query_stats</span>
+<h3 class="font-bold text-on-surface text-lg mb-2">Predictive Forecasting</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed">Ask about your future balance based on current spending trajectories and upcoming bills.</p>
+</div>
+<!-- Feature 2 -->
+<div class="p-8 bg-surface-container-low rounded-xl hover:translate-y-[-4px] transition-all">
+<span class="material-symbols-outlined text-primary mb-4 text-3xl" data-icon="account_tree">account_tree</span>
+<h3 class="font-bold text-on-surface text-lg mb-2">Tax Optimization</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed">Instantly identify potentially deductible business expenses from your transaction history.</p>
+</div>
+<!-- Feature 3 -->
+<div class="p-8 bg-surface-container-low rounded-xl hover:translate-y-[-4px] transition-all">
+<span class="material-symbols-outlined text-primary mb-4 text-3xl" data-icon="security">security</span>
+<h3 class="font-bold text-on-surface text-lg mb-2">Anomaly Detection</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed">Ask "Is there anything unusual?" to have the AI scan for double charges or subscription spikes.</p>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer / Bottom Branding -->
+<footer class="mt-12 py-12 px-6 border-t border-outline-variant/10 bg-surface-container-low/30">
+<div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
+<div>
+<span class="text-lg font-black tracking-tighter text-slate-900 font-headline">Pristine Ledger</span>
+<p class="text-on-surface-variant text-xs mt-2">© 2024 The Ledger Financial Group. All financial data is encrypted and secure.</p>
+</div>
+<div class="flex gap-8 text-sm font-medium text-on-surface-variant">
+<a class="hover:text-primary transition-colors" href="#">Privacy Policy</a>
+<a class="hover:text-primary transition-colors" href="#">Security Center</a>
+<a class="hover:text-primary transition-colors" href="#">Contact Support</a>
+</div>
+</div>
+</footer>
+<!-- FAB for Quick Search (Mobile Only) -->
+<div class="md:hidden fixed bottom-8 right-6">
+<button class="w-16 h-16 rounded-full bg-primary text-white flex items-center justify-center shadow-xl shadow-primary/40 active:scale-90 transition-transform">
+<span class="material-symbols-outlined" data-icon="search">search</span>
+</button>
+</div>
+</body></html>

@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Pristine Ledger - Accounts</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100;300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-fixed": "#ffdad5",
+                        "on-error-container": "#93000a",
+                        "primary": "#0058bc",
+                        "surface-container-high": "#e9e7ed",
+                        "secondary": "#006e28",
+                        "secondary-fixed-dim": "#53e16f",
+                        "on-tertiary": "#ffffff",
+                        "on-secondary-container": "#00732a",
+                        "on-error": "#ffffff",
+                        "on-tertiary-fixed": "#410001",
+                        "tertiary-container": "#e2241f",
+                        "error": "#ba1a1a",
+                        "surface-container-highest": "#e3e2e7",
+                        "outline": "#717786",
+                        "surface-container": "#eeedf3",
+                        "on-primary-container": "#fefcff",
+                        "inverse-primary": "#adc6ff",
+                        "background": "#faf9fe",
+                        "tertiary-fixed-dim": "#ffb4aa",
+                        "primary-fixed-dim": "#adc6ff",
+                        "on-surface": "#1a1b1f",
+                        "surface-container-low": "#f4f3f8",
+                        "on-primary": "#ffffff",
+                        "secondary-fixed": "#72fe88",
+                        "surface-bright": "#faf9fe",
+                        "inverse-on-surface": "#f1f0f5",
+                        "on-primary-fixed": "#001a41",
+                        "on-background": "#1a1b1f",
+                        "primary-fixed": "#d8e2ff",
+                        "on-secondary-fixed": "#002107",
+                        "surface-variant": "#e3e2e7",
+                        "secondary-container": "#6ffb85",
+                        "outline-variant": "#c1c6d7",
+                        "on-tertiary-container": "#fffbff",
+                        "tertiary": "#bc000a",
+                        "surface-dim": "#dad9df",
+                        "primary-container": "#0070eb",
+                        "on-secondary": "#ffffff",
+                        "surface": "#faf9fe",
+                        "error-container": "#ffdad6",
+                        "on-surface-variant": "#414755",
+                        "inverse-surface": "#2f3034",
+                        "on-primary-fixed-variant": "#004493",
+                        "on-tertiary-fixed-variant": "#930005",
+                        "surface-tint": "#005bc1",
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary-fixed-variant": "#00531c"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "1rem",
+                        "lg": "2rem",
+                        "xl": "3rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-nav {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
+        }
+        .balance-gradient {
+            background: linear-gradient(135deg, #0058bc 0%, #0070eb 100%);
+        }
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-background text-on-surface">
+<!-- TopNavBar: Fixed Execution -->
+<nav class="fixed top-0 w-full z-50 flex items-center justify-between px-6 py-3 w-full bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl shadow-sm">
+<div class="flex items-center gap-8">
+<span class="text-xl font-bold tracking-tighter text-slate-900 dark:text-slate-50 font-['Inter']">Pristine Ledger</span>
+<div class="hidden md:flex items-center gap-6">
+<div class="relative">
+<input class="bg-slate-100 dark:bg-slate-800/50 border-none rounded-full py-2 pl-10 pr-4 text-sm w-64 focus:ring-2 focus:ring-primary/20" placeholder="Search accounts..." type="text"/>
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100/50 dark:hover:bg-slate-800/50 transition-colors active:scale-95">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100/50 dark:hover:bg-slate-800/50 transition-colors active:scale-95">
+<span class="material-symbols-outlined">chat_bubble</span>
+</button>
+<button class="ml-2 w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden active:scale-95 transition-all">
+<img alt="Profile" data-alt="close-up portrait of a professional man with a friendly expression in a minimalist studio setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAFI1CvTyuwxlX4Q0bMPLfVx2nrphio3c9cuk3kWdn4oKL_QEfcO81bMn5doGf-PGgeA6Op2Rzm4d9uvg-6PjRLyGg_Jm_3HMgfo58VGKMQ1tfr4BYgjNr3iKT4LGPFf2-RaYvihIyxdBihmuiluLOXPtqqmsFCtmwImKGLhQzLUx9AsoCgCgI-kDUkBWPT6uGedYNQhDBZkn9WXkf6HJ-PA33mOBeCJcUsMaVQ7-iWWY2i6FXDICc4DngkCDW9d0RbPMCDCt3ATFc"/>
+</button>
+</div>
+</nav>
+<div class="flex pt-16">
+<!-- SideNavBar: Semantic Active State Mapping -->
+<aside class="hidden md:flex flex-col h-screen w-64 p-4 gap-2 fixed left-0 bg-slate-50 dark:bg-slate-950 font-['Inter'] text-sm font-medium">
+<div class="px-4 py-6 mb-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white shadow-lg">
+<span class="material-symbols-outlined">account_balance</span>
+</div>
+<div>
+<p class="text-lg font-black text-slate-900 dark:text-slate-50 leading-none">The Ledger</p>
+<p class="text-xs text-slate-500">Premium Tier</p>
+</div>
+</div>
+</div>
+<div class="space-y-1">
+<!-- Dashboard Inactive -->
+<a class="flex items-center gap-3 px-4 py-3 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 rounded-xl active:scale-[0.97] transition-transform duration-150" href="#">
+<span class="material-symbols-outlined">grid_view</span>
+<span>Dashboard</span>
+</a>
+<!-- Trends Inactive -->
+<a class="flex items-center gap-3 px-4 py-3 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 rounded-xl active:scale-[0.97] transition-transform duration-150" href="#">
+<span class="material-symbols-outlined">trending_up</span>
+<span>Trends</span>
+</a>
+<!-- Transactions Inactive -->
+<a class="flex items-center gap-3 px-4 py-3 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 rounded-xl active:scale-[0.97] transition-transform duration-150" href="#">
+<span class="material-symbols-outlined">receipt_long</span>
+<span>Transactions</span>
+</a>
+<!-- Accounts ACTIVE -->
+<a class="flex items-center gap-3 px-4 py-3 text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-900 shadow-sm rounded-xl active:scale-[0.97] transition-transform duration-150" href="#">
+<span class="material-symbols-outlined">account_balance</span>
+<span>Accounts</span>
+</a>
+<!-- Budget Inactive -->
+<a class="flex items-center gap-3 px-4 py-3 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 rounded-xl active:scale-[0.97] transition-transform duration-150" href="#">
+<span class="material-symbols-outlined">account_balance_wallet</span>
+<span>Budget</span>
+</a>
+</div>
+<div class="mt-auto p-4 bg-surface-container-low rounded-xl">
+<p class="text-xs text-on-surface-variant mb-3">Sync Status: Live</p>
+<button class="w-full bg-primary text-white py-2.5 rounded-full font-semibold active:scale-95 transition-all text-xs flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm">add</span>
+                    Add Transaction
+                </button>
+</div>
+</aside>
+<!-- Main Canvas -->
+<main class="flex-1 md:ml-64 p-6 lg:p-12 max-w-7xl mx-auto w-full">
+<!-- Hero Section: Total Balance -->
+<header class="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
+<div>
+<h1 class="text-headline-sm font-headline text-on-surface-variant font-medium tracking-tight mb-2">Portfolio Overview</h1>
+<div class="flex items-baseline gap-2">
+<span class="text-on-surface-variant text-4xl font-light">$</span>
+<span class="text-6xl md:text-7xl font-extrabold tracking-tighter text-on-surface leading-none">124,592.40</span>
+</div>
+<div class="flex items-center gap-2 mt-4 text-secondary font-medium">
+<span class="material-symbols-outlined text-sm">trending_up</span>
+<span class="text-sm">+2.4% this month</span>
+</div>
+</div>
+<button class="balance-gradient text-on-primary px-8 py-4 rounded-full font-bold shadow-xl flex items-center gap-3 active:scale-95 transition-all group">
+<span class="material-symbols-outlined transition-transform group-hover:rotate-90">add</span>
+                    Link New Account
+                </button>
+</header>
+<!-- Accounts Grid -->
+<div class="space-y-12">
+<!-- Cash Accounts -->
+<section>
+<div class="flex items-center justify-between mb-6 border-b border-outline-variant/10 pb-4">
+<h2 class="text-xl font-bold tracking-tight">Cash &amp; Savings</h2>
+<span class="text-sm font-medium text-on-surface-variant">2 Accounts</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+<!-- Card 1 -->
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm border border-transparent hover:border-primary/20 transition-all cursor-pointer group">
+<div class="flex items-start justify-between mb-10">
+<div class="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center border border-slate-100 overflow-hidden">
+<img class="w-8 h-8 object-contain" data-alt="minimalist modern bank icon with a clean abstract geometric logo on a light blue background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC_5tY5r-_JgQT--fPUm1LEO4ro-be2gbXnqXtIEf5Qpm3hxYZlBLOnNY4JIMhPFEwgsR582_aAjstld3qFmr6OW8vK3aI67Nw-3pES9OEjY1eDinYw7RXH08KFXKtBYrDbPYL9_Uud9JM9heP6GQGCICMyKvmWRAmCcqri_M0lpE5u7RSp0xMW-oAFk6-h4Ex5_pG3w4jB-Nc1-u-NkyvKPBGhyo1z0yT5qCgOKCfm8mG6oxISojijdboPZjbngykMIliqRLk-I74"/>
+</div>
+<span class="text-xs font-bold text-on-surface-variant bg-surface-container-low px-2 py-1 rounded">DEBIT</span>
+</div>
+<h3 class="font-bold text-lg mb-1">Chase Sapphire Checking</h3>
+<p class="text-on-surface-variant text-sm mb-6">•••• 8920</p>
+<div class="text-2xl font-black text-on-surface">$14,205.80</div>
+</div>
+<!-- Card 2 -->
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm border border-transparent hover:border-primary/20 transition-all cursor-pointer">
+<div class="flex items-start justify-between mb-10">
+<div class="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center border border-slate-100 overflow-hidden">
+<img class="w-8 h-8 object-contain" data-alt="abstract tech bank logo using clean red circles and lines on a white background for high-end digital finance" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBzU6FCbbK-mbniZhrVEDP7IrEv5_UrK6AvYvDjKiBW-rB8n4kaaOriN8FDZ_wEkSKYfWRdPSLomfTxRO0Sf6J9u2LERnMtkoXRZmjqe3QlM02oGcNtZNpwamhr0VF9oH-lgmNHaXHvJOQgO039Ldnau_Ar-oNntBSd2yjoFW0idgOc1pItWJvSH4rdPezR7L8MwMpQZ5sVM1J7zHxXk8t4kbFjEVI8P3Dn9QPq4UrcyJY81vzAleZBciO8EUHSFatoy0fxkKh3_FQ"/>
+</div>
+<span class="text-xs font-bold text-on-surface-variant bg-surface-container-low px-2 py-1 rounded">SAVINGS</span>
+</div>
+<h3 class="font-bold text-lg mb-1">High-Yield Savings</h3>
+<p class="text-on-surface-variant text-sm mb-6">•••• 1144</p>
+<div class="text-2xl font-black text-on-surface">$42,900.00</div>
+</div>
+</div>
+</section>
+<!-- Investments -->
+<section>
+<div class="flex items-center justify-between mb-6 border-b border-outline-variant/10 pb-4">
+<h2 class="text-xl font-bold tracking-tight">Investments</h2>
+<span class="text-sm font-medium text-on-surface-variant">1 Account</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+<div class="bg-surface-container-low p-6 rounded-xl border border-transparent hover:bg-surface-container-lowest transition-all cursor-pointer group">
+<div class="flex items-start justify-between mb-10">
+<div class="w-12 h-12 rounded-xl bg-white flex items-center justify-center border border-slate-100 overflow-hidden">
+<img class="w-8 h-8 object-contain" data-alt="sleek and sophisticated investment company logo featuring sharp black typography and geometric shapes" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDMt_gYjycyUdnpM3ftrj5pMVMFudS4DK7sy4EOEKP9jn7YlxD0q3KzTor8Za_bBJzh4-w3dfCpHmLGLUul5xdpY2b2ME0ud2aKhrdv3VZ2qxtRJQTo1DUQTqroiqt12rb-RPt6ziaDUTxHt-pLPyUqfZEVb7-X7E0USanPa6M31fYvi_Gw8ot8LcPTWSwxcvpcPRrmHyW7WiNF36odl0Jz0XA_uyjfevFubqr6LpktVHZi7V9bsWVzW79b6yWvHp6bEiS0eMD17Dk"/>
+</div>
+<div class="flex flex-col items-end">
+<span class="text-xs font-bold text-secondary bg-secondary-container/30 px-2 py-1 rounded">ACTIVE</span>
+</div>
+</div>
+<h3 class="font-bold text-lg mb-1">Vanguard Brokerage</h3>
+<p class="text-on-surface-variant text-sm mb-6">•••• 7731</p>
+<div class="flex items-end justify-between">
+<div class="text-2xl font-black text-on-surface">$63,486.60</div>
+<div class="text-xs text-secondary flex items-center gap-1 font-bold mb-1">
+<span class="material-symbols-outlined text-xs">arrow_upward</span> 8.1%
+                                </div>
+</div>
+</div>
+</div>
+</section>
+<!-- Credit Cards -->
+<section>
+<div class="flex items-center justify-between mb-6 border-b border-outline-variant/10 pb-4">
+<h2 class="text-xl font-bold tracking-tight">Credit Cards</h2>
+<span class="text-sm font-medium text-on-surface-variant">2 Accounts</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+<!-- Amex -->
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm border border-transparent hover:border-tertiary/20 transition-all cursor-pointer">
+<div class="flex items-start justify-between mb-10">
+<div class="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center border border-slate-100 overflow-hidden">
+<img class="w-8 h-8 object-contain" data-alt="luxurious metallic credit card texture with a centered minimalist blue logo and clean silver lines" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBIzxH569ZjB3Yde5GT0HvS2orDnoizMR2B1gOmwfRMLVpuBNt2CI6rS08W0KRrGJgXWAihnk_Teut6qN9yNxdD5Rlbyn3i-zzFHgRBwzwp1zFh8-Ed72hgiF0GMhJu7FrpgxEfvytnKE3xvnfLY2M1sNCcN7cVfJnxFBP06hnjEdHYSUTsx3FupNKz8thi-84unKnqDvTdm-AhzlEC-jIbB2yW3tlo0C8Q7Eu0Wu35wbhlOpbnlb7huSk_fGMjFS7rf9QsLUlol9g"/>
+</div>
+<span class="text-xs font-bold text-tertiary bg-error-container/20 px-2 py-1 rounded">PAYMENT DUE</span>
+</div>
+<h3 class="font-bold text-lg mb-1">Amex Platinum</h3>
+<p class="text-on-surface-variant text-sm mb-6">•••• 1004</p>
+<div class="text-2xl font-black text-tertiary">-$1,245.20</div>
+</div>
+<!-- Apple Card -->
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm border border-transparent hover:border-primary/20 transition-all cursor-pointer">
+<div class="flex items-start justify-between mb-10">
+<div class="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center border border-slate-100 overflow-hidden">
+<img class="w-8 h-8 object-contain" data-alt="white minimalist logo with a soft gray gradient representing a high-end titanium credit card" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB4s7fIp1ux0AuB8Dk8nX71VUolpimxlPCQ2mKubtNIJWOKXRgKzSDngG_1199an7LJNV1k7xGMJIdGbuSbphKGCjurKiw1YUc-NVvpYASecNh_u4f4M2B3bzv9y6a2f1M7TQMGleTZtE3S-ZvGPPtQFLSSlDqW5NdLMYCvMdAV9n_lHSA0zc8se2fjN9RA56Ufag07XBsojOHNs47G4jL2rAdcgFhVu2xHh4FO2g6WdrpcmMO3ar4ji0Sfz1sX7O8M3FuCYs3HWS4"/>
+</div>
+<span class="text-xs font-bold text-on-surface-variant bg-surface-container-low px-2 py-1 rounded">CREDIT</span>
+</div>
+<h3 class="font-bold text-lg mb-1">Apple Card</h3>
+<p class="text-on-surface-variant text-sm mb-6">•••• 0021</p>
+<div class="text-2xl font-black text-on-surface">$0.00</div>
+</div>
+</div>
+</section>
+</div>
+<!-- Bento Grid - Account Health Stats -->
+<div class="mt-16 grid grid-cols-1 md:grid-cols-4 gap-6">
+<div class="md:col-span-2 bg-surface-container-low p-8 rounded-xl flex flex-col justify-between min-h-[200px]">
+<div>
+<p class="text-sm font-bold text-primary tracking-widest uppercase mb-4">Security Score</p>
+<h4 class="text-2xl font-bold mb-2">Your connections are 100% secure</h4>
+<p class="text-on-surface-variant text-sm">All linked accounts are using 256-bit encryption and OAuth 2.0 protocols.</p>
+</div>
+<div class="flex gap-1 mt-4">
+<div class="h-1 flex-1 bg-primary rounded-full"></div>
+<div class="h-1 flex-1 bg-primary rounded-full"></div>
+<div class="h-1 flex-1 bg-primary rounded-full"></div>
+<div class="h-1 flex-1 bg-primary rounded-full"></div>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-8 rounded-xl shadow-sm border border-outline-variant/10">
+<span class="material-symbols-outlined text-primary mb-4 text-3xl">sync</span>
+<h4 class="font-bold mb-1">Last Sync</h4>
+<p class="text-2xl font-black">2m ago</p>
+<p class="text-xs text-on-surface-variant mt-2">All balances updated</p>
+</div>
+<div class="bg-surface-container-lowest p-8 rounded-xl shadow-sm border border-outline-variant/10">
+<span class="material-symbols-outlined text-secondary mb-4 text-3xl">insights</span>
+<h4 class="font-bold mb-1">Net Flow</h4>
+<p class="text-2xl font-black text-secondary">+$4,200</p>
+<p class="text-xs text-on-surface-variant mt-2">Past 30 days</p>
+</div>
+</div>
+</main>
+</div>
+<!-- BottomNavBar: Mobile Navigation Filter -->
+<nav class="md:hidden fixed bottom-0 left-0 right-0 glass-nav border-t-0 p-4 flex justify-around items-center z-50">
+<button class="flex flex-col items-center gap-1 text-slate-500">
+<span class="material-symbols-outlined">grid_view</span>
+<span class="text-[10px] font-bold">DASHBOARD</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-slate-500">
+<span class="material-symbols-outlined">trending_up</span>
+<span class="text-[10px] font-bold">TRENDS</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">account_balance</span>
+<span class="text-[10px] font-bold">ACCOUNTS</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-slate-500">
+<span class="material-symbols-outlined">receipt_long</span>
+<span class="text-[10px] font-bold">HISTORY</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-slate-500">
+<span class="material-symbols-outlined">account_circle</span>
+<span class="text-[10px] font-bold">PROFILE</span>
+</button>
+</nav>
+</body></html>

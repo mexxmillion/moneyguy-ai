@@ -1,0 +1,13 @@
+{
+  "projectId": "3058465199055632920",
+  "screens": [
+    {"name": "Design System", "id": "asset-stub-assets-9a93c66bd16a4699a759148fa89ff918-1775463515039"},
+    {"name": "Main Dashboard", "id": "5a5cf9ff7e284845a934e3e56dfca34b"},
+    {"name": "Accounts", "id": "64cfbc11da464fae9b95a5579981144d"},
+    {"name": "Budgeting", "id": "382bb03ef4a344af98172dee6a18ad86"},
+    {"name": "AI Query & Search", "id": "18e2b6dd824341a2b9d679830d006abd"},
+    {"name": "Transactions", "id": "a4a2287b7f364752b62124805edb0425"},
+    {"name": "Trends & Insights", "id": "625a976c5f2c4d7a8b299f935f327517"},
+    {"name": "Data Ingestion", "id": "5e906526fa8549c9a749cb15c4fbc809"}
+  ]
+}

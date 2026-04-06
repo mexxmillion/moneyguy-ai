@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Inbound | Pristine Ledger</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "outline": "#717786",
+                        "on-surface-variant": "#414755",
+                        "on-secondary-fixed-variant": "#00531c",
+                        "inverse-on-surface": "#f1f0f5",
+                        "on-secondary-fixed": "#002107",
+                        "on-tertiary-container": "#fffbff",
+                        "on-surface": "#1a1b1f",
+                        "on-primary": "#ffffff",
+                        "surface-container-highest": "#e3e2e7",
+                        "secondary-fixed-dim": "#53e16f",
+                        "on-tertiary-fixed": "#410001",
+                        "inverse-primary": "#adc6ff",
+                        "error-container": "#ffdad6",
+                        "primary-fixed": "#d8e2ff",
+                        "surface-bright": "#faf9fe",
+                        "primary-container": "#0070eb",
+                        "on-tertiary": "#ffffff",
+                        "secondary-container": "#6ffb85",
+                        "secondary": "#006e28",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-high": "#e9e7ed",
+                        "on-secondary": "#ffffff",
+                        "on-background": "#1a1b1f",
+                        "error": "#ba1a1a",
+                        "secondary-fixed": "#72fe88",
+                        "surface-dim": "#dad9df",
+                        "surface": "#faf9fe",
+                        "on-primary-fixed": "#001a41",
+                        "inverse-surface": "#2f3034",
+                        "tertiary-fixed-dim": "#ffb4aa",
+                        "on-secondary-container": "#00732a",
+                        "on-primary-fixed-variant": "#004493",
+                        "surface-container": "#eeedf3",
+                        "surface-tint": "#005bc1",
+                        "surface-variant": "#e3e2e7",
+                        "on-tertiary-fixed-variant": "#930005",
+                        "tertiary-fixed": "#ffdad5",
+                        "background": "#faf9fe",
+                        "on-error": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "surface-container-low": "#f4f3f8",
+                        "tertiary-container": "#e2241f",
+                        "tertiary": "#bc000a",
+                        "on-primary-container": "#fefcff",
+                        "primary-fixed-dim": "#adc6ff",
+                        "outline-variant": "#c1c6d7",
+                        "primary": "#0058bc"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "1rem",
+                        "lg": "2rem",
+                        "xl": "3rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface min-h-screen">
+<!-- SideNavBar Anchor -->
+<aside class="flex flex-col p-4 fixed left-0 top-0 h-screen overflow-y-auto bg-[#faf9fe] dark:bg-[#1a1b1f] h-full w-64 border-r border-[#c1c6d7]/15 font-['Inter'] text-sm z-40">
+<div class="flex items-center gap-3 px-2 mb-10">
+<div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">account_balance</span>
+</div>
+<div>
+<h1 class="text-lg font-black tracking-tighter text-[#1a1b1f] dark:text-[#faf9fe]">Ledger</h1>
+<p class="text-[10px] uppercase tracking-widest text-on-surface-variant/60 font-bold">Premium Finance</p>
+</div>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-4 py-3 text-[#414755] dark:text-[#c1c6d7] hover:bg-[#f4f3f8] dark:hover:bg-[#2a2b2f] rounded-full transition-all active:scale-[0.97] duration-150" href="#">
+<span class="material-symbols-outlined">grid_view</span>
+<span>Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-[#414755] dark:text-[#c1c6d7] hover:bg-[#f4f3f8] dark:hover:bg-[#2a2b2f] rounded-full transition-all active:scale-[0.97] duration-150" href="#">
+<span class="material-symbols-outlined">account_balance</span>
+<span>Accounts</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-[#414755] dark:text-[#c1c6d7] hover:bg-[#f4f3f8] dark:hover:bg-[#2a2b2f] rounded-full transition-all active:scale-[0.97] duration-150" href="#">
+<span class="material-symbols-outlined">receipt_long</span>
+<span>Transactions</span>
+</a>
+<!-- Active Tab: Inbound -->
+<a class="flex items-center gap-3 px-4 py-3 bg-[#0058bc] text-white rounded-full font-medium active:scale-[0.97] duration-150" href="#">
+<span class="material-symbols-outlined">input</span>
+<span>Inbound</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-[#414755] dark:text-[#c1c6d7] hover:bg-[#f4f3f8] dark:hover:bg-[#2a2b2f] rounded-full transition-all active:scale-[0.97] duration-150" href="#">
+<span class="material-symbols-outlined">analytics</span>
+<span>Reports</span>
+</a>
+</nav>
+<div class="mt-auto pt-6 border-t border-[#c1c6d7]/15">
+<button class="w-full bg-gradient-to-br from-primary to-primary-container text-white rounded-full py-4 font-semibold shadow-lg shadow-primary/20 active:scale-95 transition-transform flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm">add</span>
+                New Entry
+            </button>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-64 p-12 min-h-screen">
+<!-- Header Section -->
+<header class="mb-16 max-w-4xl">
+<p class="text-primary font-semibold tracking-wider text-sm uppercase mb-4">Data Ingestion</p>
+<h2 class="text-[3.5rem] font-bold tracking-tight text-on-surface leading-none mb-6">Bring your data home.</h2>
+<p class="text-on-surface-variant text-xl leading-relaxed max-w-2xl font-light">
+                Consolidate your financial footprint. Import transactions from institutions, files, or manual records into your pristine ledger.
+            </p>
+</header>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-12 gap-8 max-w-7xl">
+<!-- Section 1: Link Institutions (Large) -->
+<section class="col-span-12 lg:col-span-8 bg-surface-container-low rounded-xl p-8 flex flex-col justify-between overflow-hidden relative group">
+<div class="relative z-10">
+<div class="flex items-center gap-3 mb-8">
+<div class="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">account_balance_wallet</span>
+</div>
+<h3 class="text-2xl font-bold">Link Institutions</h3>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
+<!-- Bank Logos Mockups -->
+<div class="bg-surface-container-lowest p-6 rounded-lg flex items-center justify-center grayscale hover:grayscale-0 transition-all cursor-pointer border border-transparent hover:border-primary/20">
+<img alt="Chase" class="h-8 object-contain" data-alt="Official logo of Chase bank, clean blue vector style on white background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCCtw_Nx5hlyPkylirk-N_4E2NnKtD9ZilqxJOO8Xb9puCS_ELzpFi1CuqqzXz4nDm_VPpxZs3Z0CZXAFYCbWESNutR4bTRjcHP5sY-94_MPjjMTF26bxEoTqhEQ2t-_cmQdGc8Swzsg4QKpmd_OwBMu-u1dWHT9k_HzDPclZR_En2E4ZfED4sEMpZNlXwtF7dVNL6Yq4-AIKDvl4eeEsl42khpBIwC-K3atjdtieMv2Iw_dJtWqXoBHT9IoKYLXXGGaEW1B_AVAiY"/>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-lg flex items-center justify-center grayscale hover:grayscale-0 transition-all cursor-pointer border border-transparent hover:border-primary/20">
+<img alt="Vanguard" class="h-8 object-contain" data-alt="Official logo of Vanguard investment group, stylized ship on white background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBnRj8lL0V0GIV3jiMjxndr_ETPT1O8JEz_ji7PzxYXwRScwnYFvDlhWzJxJ7aBNuOj3-fqP87PzVS3VFfoV4nwUIqmvTP3UYsx4cfoBOdOlHrTxcOQUeELcUSMv1oFIHWQD0mB9nyRTdb-6YHIXZx_cLrw7huXkf9FkMFJ8h79gM5Lgo2hi578-y9f6S_ajxGmt3F3PU4iz0IMKSLm7ffpl680IG2uiOPB9gMWIC8q0TBs6sRJejvB6mEaTFyxjeWbjRNLbO2pZpg"/>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-lg flex items-center justify-center grayscale hover:grayscale-0 transition-all cursor-pointer border border-transparent hover:border-primary/20">
+<img alt="Amex" class="h-8 object-contain" data-alt="Official American Express logo, blue and white corporate branding" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAH5YEt8X9MZ3unbbLfG-NDbEi0rj6hXE8EX6lo03gTofdNboNX-H9pkZ6GdDlCcNmbbAraJE5VlJIz1AbPweh6dCg5UsFYX2tEsGjK3yH6UsZQae3Yx_YncRDSl8cXanthcaWuix5kWXYTQwXoOp58ZGytwh1KvxxIeAcd1LbLxLon3sAtZNK5FtYKKC6VQ8p27TECWsGmdDGOvoWxbyZPpPq7Cxzz4jID-D17fFYEspOgZrgCzx4T-RDZcMRH6hmKYxJBwGm2NKo"/>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-lg flex items-center justify-center grayscale hover:grayscale-0 transition-all cursor-pointer border border-transparent hover:border-primary/20">
+<img alt="BoA" class="h-8 object-contain" data-alt="Official Bank of America logo, red white and blue flag motif" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCbUgbr9VpEm6g2MQMP4GjnRpPbTZaUwTYWSlakdnzVCqC0d9e5yLEfeS8rB6NMLIlHQLwKfKM0pvnm--tqp0mj5QujweZ5YOlz8pWnMJytGH_QNd86_7nO9Iml0IwFhdeuu6dKkV3vgQnP7Jx6e5Vz9RcsmiToiRIXlUQsiRvqXXObdviDvLwnWHnxSFhNBxeeyQ3rgorPqH0ibT2Ikcmb8inZYKpC7yL2N2FCvfOqks25FSh98Q4IQFX8HW1QucWmMxSjlGZ61f0"/>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-lg flex items-center justify-center grayscale hover:grayscale-0 transition-all cursor-pointer border border-transparent hover:border-primary/20">
+<img alt="Fidelity" class="h-8 object-contain" data-alt="Official Fidelity Investments logo, green and blue corporate style" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBrRtczPs_8Bv-X43sXo1nT-bU305d8La-_-670YIb1xTQ0Ktsaj_P1K48f2NEOXj7LHPT5ayXC9LyFT1rRyJbCgOPCd4ciltAo8TyfcTIKweAwPIUIx9HpsDygjJQaMgBEfyUN2CIf6_kdVKYwpA8lXd3M5A-OFBL_OHNbmaUkYMwQ48unS_fyGdXl-iGPOpT4V4SWLV6wJUFWDZkOBKaDTJoG8Wt8uhT86fsSm_wd6XxnC2NWoFiKi5UqG51SSML0zbkpvWObsC8"/>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-lg flex items-center justify-center grayscale hover:grayscale-0 transition-all cursor-pointer border border-transparent hover:border-primary/20">
+<img alt="Wells Fargo" class="h-8 object-contain" data-alt="Official Wells Fargo logo, red and gold classic branding" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCZlPKUBfOkN1TZM85Mb0pxzM-i8tJXndw7DxNs8b8j4p_jRGURfH60_tMKWJPbhqbhigNadBoBmXWa9ZGETGdVRo-8F3Q3o0Wzv41g6JT6cQ7kPMdYfDuYaXkdeePhWaFBnUHS7tkswSJDJr4r4h5BC8DOJKM1xD3gfKIyCPdCIOSqClR_d40bstUDswthtvbyPzPeeVNvr3GHDwfjxzP8cN3FEbEhfRWSDzon17BVbwFsJAVZQxAe5aDpC_9qFqj0nHMkvYOQvHI"/>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-lg flex items-center justify-center grayscale hover:grayscale-0 transition-all cursor-pointer border border-transparent hover:border-primary/20">
+<img alt="Morgan Stanley" class="h-8 object-contain" data-alt="Official Morgan Stanley logo, elegant blue corporate font" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDF2plGOYUeZWxtxGorZsLVwj44wtb4tk7JYCybM1HBBo1pwi2utAx7iX-TqBX5Y9k6PuVjI6Tbydn1_zpqsgl6qEjpgIVjUtzrOR4b7UWTh1tBr95wQE3xbt8vLHNFnjy0Dw9nLZ-YLNUfyk27CI1fGUX3Xu_ytMaO9sOIWuX6Lig-RlQ7SvW97sX7wuBIYtpq5xoX5ph36yDCxGWkXPGX4D8qZF3r7zLT0RmFe034skxbcY6iHhO9v1wAkoGtRm7sU6jXdjieA3c"/>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-lg flex items-center justify-center grayscale hover:grayscale-0 transition-all cursor-pointer border border-transparent hover:border-primary/20">
+<div class="text-on-surface-variant font-medium text-sm flex items-center gap-1">
+<span>+2000 more</span>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2 text-on-surface-variant text-sm">
+<span class="material-symbols-outlined text-secondary text-lg" style="font-variation-settings: 'FILL' 1;">verified_user</span>
+                            Secure 256-bit encryption
+                        </div>
+<button class="bg-primary text-white px-8 py-3 rounded-full font-bold hover:bg-primary-container transition-colors active:scale-95 duration-200 shadow-xl shadow-primary/10">
+                            Connect Now
+                        </button>
+</div>
+</div>
+<!-- Subtle Gradient Background Element -->
+<div class="absolute -right-20 -bottom-20 w-64 h-64 bg-primary/5 rounded-full blur-3xl"></div>
+</section>
+<!-- Section 2: Manual Entry (Small/Vertical) -->
+<section class="col-span-12 lg:col-span-4 bg-surface-container-lowest rounded-xl p-8 border border-outline-variant/15 flex flex-col items-center text-center justify-center">
+<div class="w-16 h-16 bg-surface-container rounded-full flex items-center justify-center text-on-surface mb-6">
+<span class="material-symbols-outlined text-3xl">edit_note</span>
+</div>
+<h3 class="text-xl font-bold mb-2">Manual Entry</h3>
+<p class="text-on-surface-variant text-sm mb-8 leading-relaxed px-4">
+                    For cash expenses or one-off items that aren't tied to an account.
+                </p>
+<button class="bg-surface-container-high text-primary px-8 py-3 rounded-lg font-bold hover:bg-primary/5 transition-colors active:scale-95 duration-200 w-full">
+                    Add a single transaction
+                </button>
+</section>
+<!-- Section 3: File Upload (Large) -->
+<section class="col-span-12 bg-surface-container-low rounded-xl p-1 w-full">
+<div class="bg-surface-container-lowest rounded-lg border-2 border-dashed border-outline-variant/30 m-2 flex flex-col items-center justify-center py-20 px-8 transition-colors hover:border-primary/40 group cursor-pointer">
+<div class="relative mb-6">
+<div class="w-20 h-20 bg-primary/5 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-4xl text-primary">cloud_upload</span>
+</div>
+</div>
+<h3 class="text-2xl font-bold mb-3">Drop your statements here</h3>
+<p class="text-on-surface-variant text-lg mb-8 max-w-md text-center">
+                        Upload <span class="font-semibold text-on-surface">CSV, QFX, or PDF</span> files directly from your computer. We'll handle the categorization.
+                    </p>
+<div class="flex flex-col items-center gap-4">
+<button class="bg-on-surface text-surface px-10 py-4 rounded-full font-bold hover:opacity-90 active:scale-95 transition-all">
+                            Browse your files
+                        </button>
+<p class="text-xs text-on-surface-variant/60 tracking-widest uppercase font-bold">Max file size: 50MB</p>
+</div>
+</div>
+</section>
+<!-- Status / Recent Imports Section -->
+<section class="col-span-12 mt-8">
+<div class="flex items-center justify-between mb-8">
+<h4 class="text-xl font-bold">Recent Import Activity</h4>
+<button class="text-primary font-bold text-sm flex items-center gap-1 hover:underline">
+                        View Import History <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</button>
+</div>
+<div class="space-y-4">
+<!-- Import Row 1 -->
+<div class="flex items-center justify-between p-6 bg-surface-container-lowest rounded-lg border border-outline-variant/5">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 bg-secondary/10 rounded-full flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined">check_circle</span>
+</div>
+<div>
+<p class="font-bold">Chase Checking (...4902)</p>
+<p class="text-sm text-on-surface-variant">42 transactions imported successfully</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-sm font-bold">Today, 10:24 AM</p>
+<p class="text-xs text-on-surface-variant/60">Automated Sync</p>
+</div>
+</div>
+<!-- Import Row 2 -->
+<div class="flex items-center justify-between p-6 bg-surface-container-lowest rounded-lg border border-outline-variant/5">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">description</span>
+</div>
+<div>
+<p class="font-bold">amex_statement_june.pdf</p>
+<p class="text-sm text-on-surface-variant">18 transactions pending review</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-sm font-bold">Yesterday</p>
+<p class="text-xs text-on-surface-variant/60">Manual Upload</p>
+</div>
+</div>
+</div>
+</section>
+</div>
+<!-- Support Section -->
+<footer class="mt-24 border-t border-outline-variant/15 pt-12 flex flex-col md:flex-row items-center justify-between gap-8">
+<div class="flex items-center gap-6">
+<div class="flex -space-x-3">
+<img alt="Support" class="w-10 h-10 rounded-full border-2 border-surface" data-alt="Portrait of a professional female customer success representative smiling" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAyiSsXbzWTBpgtz5c1nhDjFrJsuL8dYeXdu2w5MmEe_qshPtkmAB-okxvW-GckyAecBCCMp5xJARO3Gf0b26wLIDdWjshnihnhEOJ8TccnFYqjDb6JLKDTfdfrO_czTjIEJOEK_v-rnptrB2PUCdv9DKNOynPRhQVO-58CsSoV4CjItro98sIk8NEdy8N_6MHYGYig8yJ2gk0RfhzwS15L8hMOkT_ihr4hONCw5PX4878u1hPZ0kWQot80-cFQFicFgB7458S7IR0"/>
+<img alt="Support" class="w-10 h-10 rounded-full border-2 border-surface" data-alt="Portrait of a friendly male technical support agent with soft lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDm9Cjz3qNHw0vMK8RpTFd9_pKVKQQWOom85wTvwfQ8Q853YrUgLiVsvng7JQ5DOCGilHemm0mTp5X3kDQd-a4fOrEpHbGie0E16jOOyY3bahfLWZbv_R36o5jCjBsiImvSwhFMUPumYfKRtJlkjH6h0Ni5WXzhlcAqSsdPt_vR7qASETqk_LLxGvyVCRHbGOQgWfx3EGTUZPLEMCnwumDxCGJ8xEKi6QPMysiknwnkXoJB9Ltsm1n83mPuuohAXIBzddYzun4iQv4"/>
+</div>
+<p class="text-on-surface-variant text-sm">Need help with your data? <a class="text-primary font-bold hover:underline" href="#">Chat with an expert</a></p>
+</div>
+<div class="flex gap-8 text-sm font-medium text-on-surface-variant">
+<a class="hover:text-primary" href="#">Help Center</a>
+<a class="hover:text-primary" href="#">API Documentation</a>
+<a class="hover:text-primary" href="#">Security Protocol</a>
+</div>
+</footer>
+</main>
+</body></html>
