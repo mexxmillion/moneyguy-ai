@@ -7,6 +7,7 @@ import AIChat from './pages/AIChat';
 import Categories from './pages/Categories';
 import Settings from './pages/Settings';
 import Budgets from './pages/Budgets';
+import Trends from './pages/Trends';
 import ErrorBoundary from './components/ErrorBoundary';
 
 const tabs = [
@@ -15,6 +16,7 @@ const tabs = [
   { id: 'transactions', label: 'Transactions', icon: '💰' },
   { id: 'upload', label: 'Upload', icon: '📁' },
   { id: 'ai', label: 'AI Query', icon: '🤖' },
+  { id: 'trends', label: 'Trends', icon: '📈' },
   { id: 'budgets', label: 'Budgets', icon: '🎯' },
   { id: 'categories', label: 'Categories', icon: '🏷️' },
   { id: 'settings', label: 'Settings', icon: '⚙️' },
@@ -65,6 +67,7 @@ export default function App() {
           {activeTab === 'upload' && <Upload />}
           {activeTab === 'transactions' && <Transactions initialFilters={transactionsFilters} />}
           {activeTab === 'ai' && <AIChat />}
+          {activeTab === 'trends' && <Trends />}
           {activeTab === 'budgets' && <Budgets />}
           {activeTab === 'categories' && <Categories />}
           {activeTab === 'settings' && <Settings />}

@@ -353,3 +353,83 @@ ${txLines}`;
     res.status(500).json({ error: err.message });
   }
 });
+
+// Trends — flexible date range, group by day/week/month, filter by account/category
+router.get('/trends', (req, res) => {
+  const { date_from, date_to, account_id, category, group_by = 'day' } = req.query;
+
+  const conditions = [];
+  const params = [];
+
+  if (date_from) { conditions.push('t.transaction_date >= ?'); params.push(date_from); }
+  if (date_to)   { conditions.push('t.transaction_date <= ?'); params.push(date_to); }
+  if (account_id){ conditions.push('t.account_id = ?'); params.push(account_id); }
+  if (category)  { conditions.push('t.category = ?'); params.push(category); }
+
+  const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
+
+  // Group key
+  const groupKey = group_by === 'month'
+    ? "strftime('%Y-%m', t.transaction_date)"
+    : group_by === 'week'
+    ? "strftime('%Y-W%W', t.transaction_date)"
+    : "t.transaction_date";
+
+  // Spending over time (debits only)
+  const overTime = db.prepare(`
+    SELECT ${groupKey} as period,
+      SUM(CASE WHEN t.amount > 0 THEN t.amount ELSE 0 END) as spending,
+      SUM(CASE WHEN t.amount < 0 THEN ABS(t.amount) ELSE 0 END) as income,
+      COUNT(*) as count
+    FROM transactions t ${where}
+    GROUP BY period ORDER BY period ASC
+  `).all(...params);
+
+  // By category for the period
+  const byCategory = db.prepare(`
+    SELECT t.category,
+      SUM(CASE WHEN t.amount > 0 THEN t.amount ELSE 0 END) as total,
+      COUNT(*) as count
+    FROM transactions t ${where}
+    ${where ? 'AND' : 'WHERE'} t.amount > 0 AND t.category != 'Payments' AND t.category != 'Transfers'
+    GROUP BY t.category ORDER BY total DESC
+  `).all(...params);
+
+  // Month over month comparison (always by month regardless of group_by)
+  const byMonth = db.prepare(`
+    SELECT strftime('%Y-%m', t.transaction_date) as month,
+      SUM(CASE WHEN t.amount > 0 THEN t.amount ELSE 0 END) as spending,
+      SUM(CASE WHEN t.amount < 0 THEN ABS(t.amount) ELSE 0 END) as income,
+      COUNT(*) as count
+    FROM transactions t ${where}
+    GROUP BY month ORDER BY month ASC
+  `).all(...params);
+
+  // Top merchants for the period
+  const topMerchants = db.prepare(`
+    SELECT t.merchant_name, SUM(t.amount) as total, COUNT(*) as count, t.category
+    FROM transactions t ${where}
+    ${where ? 'AND' : 'WHERE'} t.amount > 0
+    GROUP BY t.merchant_name ORDER BY total DESC LIMIT 10
+  `).all(...params);
+
+  // Cumulative spending
+  let cumulative = 0;
+  const cumulativeData = overTime.map(row => {
+    cumulative += row.spending;
+    return { period: row.period, cumulative };
+  });
+
+  // Summary totals
+  const totals = db.prepare(`
+    SELECT
+      SUM(CASE WHEN t.amount > 0 THEN t.amount ELSE 0 END) as totalSpent,
+      SUM(CASE WHEN t.amount < 0 THEN ABS(t.amount) ELSE 0 END) as totalIncome,
+      COUNT(*) as count,
+      AVG(CASE WHEN t.amount > 0 THEN t.amount END) as avgTransaction,
+      MAX(CASE WHEN t.amount > 0 THEN t.amount END) as maxTransaction
+    FROM transactions t ${where}
+  `).get(...params);
+
+  res.json({ overTime, byCategory, byMonth, topMerchants, cumulativeData, totals });
+});
