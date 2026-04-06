@@ -433,3 +433,25 @@ router.get('/trends', (req, res) => {
 
   res.json({ overTime, byCategory, byMonth, topMerchants, cumulativeData, totals });
 });
+
+// Review queue — flagged/needs_review transactions
+router.get('/review', (req, res) => {
+  const rows = db.prepare(`
+    SELECT t.*, a.name as account_name, a.institution
+    FROM transactions t
+    LEFT JOIN accounts a ON a.id = t.account_id
+    WHERE t.needs_review = 1
+    ORDER BY t.transaction_date DESC
+  `).all();
+  res.json({ transactions: rows, count: rows.length });
+});
+
+router.post('/review/:id/dismiss', (req, res) => {
+  db.prepare('UPDATE transactions SET needs_review = 0 WHERE id = ?').run(req.params.id);
+  res.json({ ok: true });
+});
+
+router.post('/review/:id/delete', (req, res) => {
+  db.prepare('DELETE FROM transactions WHERE id = ?').run(req.params.id);
+  res.json({ ok: true });
+});

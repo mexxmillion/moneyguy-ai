@@ -191,15 +191,19 @@ async function processFile(filepath, originalname, importedBy = 'web') {
 
   // Insert transactions
   const insertTx = db.prepare(`
-    INSERT INTO transactions (statement_id, account_id, transaction_date, posting_date, description, merchant_name, amount, currency, category, notes)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO transactions (statement_id, account_id, transaction_date, posting_date, description, merchant_name, amount, currency, category, notes, needs_review)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
+
+  const flaggedIds = new Set(flagged.map(f => `${f.transaction_date}|${f.amount}|${f.merchant_name}`));
 
   const insertMany = db.transaction((txns) => {
     for (const t of txns) {
+      const key = `${t.transaction_date}|${t.amount}|${t.merchant_name}`;
+      const needsReview = flaggedIds.has(key) ? 1 : 0;
       insertTx.run(
         statementId, accountId, t.transaction_date, t.posting_date,
-        t.description, t.merchant_name, t.amount, t.currency, t.category, t.notes || null
+        t.description, t.merchant_name, t.amount, t.currency, t.category, t.notes || null, needsReview
       );
     }
   });

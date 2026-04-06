@@ -8,6 +8,7 @@ import Categories from './pages/Categories';
 import Settings from './pages/Settings';
 import Budgets from './pages/Budgets';
 import Trends from './pages/Trends';
+import Review from './pages/Review';
 import ErrorBoundary from './components/ErrorBoundary';
 
 const tabs = [
@@ -17,6 +18,7 @@ const tabs = [
   { id: 'upload', label: 'Upload', icon: '📁' },
   { id: 'ai', label: 'AI Query', icon: '🤖' },
   { id: 'trends', label: 'Trends', icon: '📈' },
+  { id: 'review', label: 'Review', icon: '⚠️' },
   { id: 'budgets', label: 'Budgets', icon: '🎯' },
   { id: 'categories', label: 'Categories', icon: '🏷️' },
   { id: 'settings', label: 'Settings', icon: '⚙️' },
@@ -25,6 +27,12 @@ const tabs = [
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [transactionsFilters, setTransactionsFilters] = useState({});
+  const [reviewCount, setReviewCount] = useState(0);
+
+  // Load review count on mount
+  useState(() => {
+    fetch('/api/transactions/review').then(r => r.json()).then(d => setReviewCount(d.count || 0)).catch(() => {});
+  });
 
   const openTransactions = (accountId) => {
     setTransactionsFilters(accountId ? { account_id: String(accountId) } : {});
@@ -41,7 +49,7 @@ export default function App() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`relative px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 activeTab === tab.id
                   ? 'bg-emerald-600 text-white'
                   : 'text-gray-400 hover:text-white hover:bg-gray-800'
@@ -49,6 +57,11 @@ export default function App() {
             >
               <span className="mr-1.5">{tab.icon}</span>
               {tab.label}
+              {tab.id === 'review' && reviewCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-amber-500 text-black text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                  {reviewCount}
+                </span>
+              )}
             </button>
           ))}
         </nav>
@@ -68,6 +81,7 @@ export default function App() {
           {activeTab === 'transactions' && <Transactions initialFilters={transactionsFilters} />}
           {activeTab === 'ai' && <AIChat />}
           {activeTab === 'trends' && <Trends />}
+          {activeTab === 'review' && <Review onBadgeCount={setReviewCount} />}
           {activeTab === 'budgets' && <Budgets />}
           {activeTab === 'categories' && <Categories />}
           {activeTab === 'settings' && <Settings />}
