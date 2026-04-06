@@ -1,180 +1,159 @@
 import { useState, useRef } from 'react';
 
-const STAGES = [
-  { key: 'reading', label: 'Reading file…' },
-  { key: 'extracting', label: 'Extracting transactions with AI…' },
-  { key: 'saving', label: 'Saving to database…' },
-  { key: 'done', label: 'Done!' },
-];
-
 export default function Upload() {
-  const [uploading, setUploading] = useState(false);
-  const [stage, setStage] = useState(0);
-  const [results, setResults] = useState(null);
+  const [queue, setQueue] = useState([]); // { file, status: 'pending'|'uploading'|'done'|'error', result, error }
   const [dragOver, setDragOver] = useState(false);
-  const [error, setError] = useState(null);
   const fileRef = useRef();
-  const abortRef = useRef(null);
+  const processingRef = useRef(false);
 
-  const reset = () => {
-    setResults(null);
-    setError(null);
-    setUploading(false);
-    setStage(0);
-    if (fileRef.current) fileRef.current.value = '';
+  const addFiles = (files) => {
+    const newItems = Array.from(files).map(f => ({ id: Math.random(), file: f, status: 'pending', result: null, error: null }));
+    setQueue(prev => {
+      const updated = [...prev, ...newItems];
+      // Kick off processing after state update
+      setTimeout(() => processQueue(updated), 0);
+      return updated;
+    });
   };
 
-  const handleUpload = async (files) => {
-    if (!files || files.length === 0) return;
-    reset();
-    setUploading(true);
-    setStage(0);
+  const processQueue = async (currentQueue) => {
+    if (processingRef.current) return;
+    processingRef.current = true;
 
-    const formData = new FormData();
-    for (const f of files) formData.append('files', f);
+    // Find pending items
+    const pending = currentQueue.filter(i => i.status === 'pending');
+    for (const item of pending) {
+      // Mark uploading
+      setQueue(prev => prev.map(i => i.id === item.id ? { ...i, status: 'uploading' } : i));
 
-    const controller = new AbortController();
-    abortRef.current = controller;
+      const formData = new FormData();
+      formData.append('files', item.file);
 
-    // Fake stage progression so user sees something happening
-    setStage(1); // extracting
-    const stageTimer = setTimeout(() => setStage(2), 8000); // saving after 8s
-
-    try {
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-        signal: controller.signal,
-      });
-      clearTimeout(stageTimer);
-      if (!res.ok) throw new Error(`Server error: ${res.status}`);
-      const data = await res.json();
-      setStage(3);
-      setResults(data);
-    } catch (err) {
-      clearTimeout(stageTimer);
-      if (err.name === 'AbortError') {
-        setError('Upload cancelled.');
-      } else {
-        setError(err.message);
+      try {
+        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        if (!res.ok) throw new Error(`Server error ${res.status}`);
+        const data = await res.json();
+        setQueue(prev => prev.map(i => i.id === item.id ? { ...i, status: 'done', result: data } : i));
+      } catch (err) {
+        setQueue(prev => prev.map(i => i.id === item.id ? { ...i, status: 'error', error: err.message } : i));
       }
-    } finally {
-      setUploading(false);
-      abortRef.current = null;
     }
-  };
 
-  const cancel = () => {
-    abortRef.current?.abort();
+    processingRef.current = false;
+
+    // Check if more were added while we were processing
+    setQueue(prev => {
+      const stillPending = prev.filter(i => i.status === 'pending');
+      if (stillPending.length > 0) {
+        setTimeout(() => processQueue(prev), 0);
+      }
+      return prev;
+    });
   };
 
   const onDrop = (e) => {
     e.preventDefault();
     setDragOver(false);
-    handleUpload(e.dataTransfer.files);
+    addFiles(e.dataTransfer.files);
   };
 
-  return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <h2 className="text-lg font-semibold text-gray-200">Upload Statements</h2>
-      <p className="text-sm text-gray-500">
-        PDF bank statements, CSV exports, or ZIP files. AI extracts and categorizes automatically.
-      </p>
+  const clearDone = () => setQueue(prev => prev.filter(i => i.status === 'pending' || i.status === 'uploading'));
 
-      {/* Drop zone — always visible so you can queue another file */}
+  const isProcessing = queue.some(i => i.status === 'uploading');
+  const doneCount = queue.filter(i => i.status === 'done').length;
+  const totalImported = queue.filter(i => i.status === 'done').reduce((s, i) => s + (i.result?.imported ?? i.result?.totalImported ?? 0), 0);
+
+  return (
+    <div className="max-w-2xl mx-auto space-y-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-200">Upload Statements</h2>
+          <p className="text-sm text-gray-500 mt-0.5">PDF, CSV, or ZIP — drop multiple files, they'll process one by one</p>
+        </div>
+        {doneCount > 0 && (
+          <button onClick={clearDone} className="text-xs text-gray-500 hover:text-gray-300">Clear done</button>
+        )}
+      </div>
+
+      {/* Drop zone — always active */}
       <div
         onDragOver={e => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
         onDrop={onDrop}
-        onClick={() => !uploading && fileRef.current.click()}
-        className={`border-2 border-dashed rounded-xl p-12 text-center transition-colors ${
-          uploading
-            ? 'border-gray-800 cursor-not-allowed opacity-50'
-            : dragOver
-            ? 'border-emerald-500 bg-emerald-500/10 cursor-pointer'
-            : 'border-gray-700 hover:border-gray-500 cursor-pointer'
+        onClick={() => fileRef.current.click()}
+        className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-all ${
+          dragOver ? 'border-emerald-500 bg-emerald-500/10 scale-[1.01]' : 'border-gray-700 hover:border-gray-500 hover:bg-gray-900/30'
         }`}
       >
-        <div className="text-4xl mb-3">{uploading ? '⏳' : '📄'}</div>
-        <p className="text-gray-400">
-          {uploading ? STAGES[stage]?.label : 'Drop files here or click to browse'}
-        </p>
-        <p className="text-xs text-gray-600 mt-2">PDF, CSV, ZIP — up to 50MB</p>
-        <input
-          ref={fileRef}
-          type="file"
-          multiple
-          accept=".pdf,.csv,.zip"
-          onChange={e => handleUpload(e.target.files)}
-          className="hidden"
-        />
+        <div className="text-3xl mb-2">📂</div>
+        <p className="text-gray-400 text-sm">Drop files here or click to browse</p>
+        <p className="text-xs text-gray-600 mt-1">PDF · CSV · ZIP — up to 50MB each · multiple files OK</p>
+        <input ref={fileRef} type="file" multiple accept=".pdf,.csv,.zip"
+          onChange={e => { addFiles(e.target.files); e.target.value = ''; }}
+          className="hidden" />
       </div>
 
-      {/* Progress */}
-      {uploading && (
-        <div className="bg-gray-900 rounded-xl p-5 border border-gray-800 space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="animate-spin w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full flex-shrink-0" />
-              <span className="text-gray-300 text-sm">{STAGES[stage]?.label}</span>
-            </div>
-            <button onClick={cancel} className="text-xs text-gray-600 hover:text-rose-400 transition-colors">
-              Cancel
-            </button>
-          </div>
-          {/* Stage bar */}
-          <div className="flex gap-1.5">
-            {STAGES.slice(1, 4).map((s, i) => (
-              <div key={s.key} className={`h-1 flex-1 rounded-full transition-all ${i + 1 <= stage ? 'bg-emerald-500' : 'bg-gray-800'}`} />
-            ))}
-          </div>
-          <p className="text-xs text-gray-600">AI parsing can take 15–45 seconds for large PDFs. Hang tight.</p>
-        </div>
-      )}
-
-      {/* Error */}
-      {error && (
-        <div className="bg-rose-900/20 border border-rose-800/40 rounded-xl p-5">
-          <div className="flex items-center justify-between">
-            <p className="text-rose-400 text-sm">⚠ {error}</p>
-            <button onClick={reset} className="text-xs text-gray-500 hover:text-white">Try again</button>
-          </div>
-        </div>
-      )}
-
-      {/* Results */}
-      {results && !uploading && (
-        <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-emerald-400">
-              <span>✓</span>
-              <span className="font-medium">
-                {results.totalImported ?? results.imported ?? 0} transactions imported
-              </span>
-            </div>
-            <button onClick={reset} className="text-xs text-gray-500 hover:text-white">Upload another</button>
-          </div>
-
-          {results.results?.map((r, i) => (
-            <div key={i} className="border-t border-gray-800 pt-3 space-y-1">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-300 truncate flex-1 mr-3">{r.filename}</span>
-                <span className={r.success ? 'text-emerald-400' : 'text-rose-400'}>
-                  {r.success ? `✓ ${r.count} transactions` : '✗ Failed'}
-                </span>
-              </div>
-              {(r.duplicates > 0 || r.flagged > 0) && (
-                <p className="text-xs text-gray-600">
-                  {r.duplicates > 0 && `${r.duplicates} duplicates skipped`}
-                  {r.duplicates > 0 && r.flagged > 0 && ' · '}
-                  {r.flagged > 0 && <span className="text-amber-500">{r.flagged} flagged for review</span>}
-                </p>
-              )}
-              {r.warning && <p className="text-xs text-amber-400">{r.warning}</p>}
-              {r.error && <p className="text-xs text-rose-400">{r.error}</p>}
-            </div>
+      {/* Queue */}
+      {queue.length > 0 && (
+        <div className="space-y-2">
+          {queue.map(item => (
+            <FileRow key={item.id} item={item} onRemove={() => setQueue(prev => prev.filter(i => i.id !== item.id))} />
           ))}
         </div>
+      )}
+
+      {/* Summary */}
+      {doneCount > 0 && (
+        <div className="bg-emerald-900/20 border border-emerald-800/40 rounded-xl px-5 py-3 text-sm text-emerald-400">
+          ✓ {doneCount} file{doneCount !== 1 ? 's' : ''} processed · {totalImported} transactions imported
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FileRow({ item, onRemove }) {
+  const { file, status, result, error } = item;
+  const r = result?.results?.[0] || result;
+  const imported = result?.imported ?? result?.totalImported ?? 0;
+  const dupes = result?.duplicates ?? 0;
+  const flagged = result?.flagged ?? 0;
+
+  return (
+    <div className={`bg-gray-900 border rounded-xl px-4 py-3 flex items-center gap-3 transition-all ${
+      status === 'done' ? 'border-emerald-800/40' :
+      status === 'error' ? 'border-rose-800/40' :
+      status === 'uploading' ? 'border-blue-800/40' :
+      'border-gray-800'
+    }`}>
+      {/* Status icon */}
+      <div className="flex-shrink-0 w-6 text-center">
+        {status === 'pending'   && <span className="text-gray-600 text-sm">⏳</span>}
+        {status === 'uploading' && <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin mx-auto" />}
+        {status === 'done'      && <span className="text-emerald-400 text-sm">✓</span>}
+        {status === 'error'     && <span className="text-rose-400 text-sm">✗</span>}
+      </div>
+
+      {/* File info */}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm text-gray-200 truncate">{file.name}</p>
+        <p className="text-xs text-gray-600 mt-0.5">
+          {status === 'pending'   && 'Waiting…'}
+          {status === 'uploading' && <span className="text-blue-400 animate-pulse">Processing with AI…</span>}
+          {status === 'done'      && (
+            <span className="text-emerald-400">
+              {imported} imported
+              {dupes > 0 && <span className="text-gray-500"> · {dupes} dupes skipped</span>}
+              {flagged > 0 && <span className="text-amber-400"> · {flagged} flagged</span>}
+            </span>
+          )}
+          {status === 'error'     && <span className="text-rose-400">{error}</span>}
+        </p>
+      </div>
+
+      {/* Remove button (only if not uploading) */}
+      {status !== 'uploading' && (
+        <button onClick={onRemove} className="text-gray-700 hover:text-gray-400 text-sm flex-shrink-0">✕</button>
       )}
     </div>
   );
