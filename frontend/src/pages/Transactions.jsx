@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import TransactionTable from '../components/TransactionTable';
 import SearchBar from '../components/SearchBar';
+import TransactionSummary from '../components/TransactionSummary';
 
 export default function Transactions({ initialFilters = {} }) {
   const [transactions, setTransactions] = useState([]);
@@ -92,6 +93,8 @@ export default function Transactions({ initialFilters = {} }) {
       </div>
 
       <SearchBar filters={filters} onChange={handleFilterChange} categories={categories} accounts={accounts} />
+
+      <TransactionSummary filters={filters} />
 
       {/* Bulk actions */}
       {selectedIds.size > 0 && (

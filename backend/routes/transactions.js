@@ -176,6 +176,104 @@ router.get('/stats', (req, res) => {
   });
 });
 
+// Summary stats for current filter (sum, min, max, avg, count + trends)
+router.get('/summary', (req, res) => {
+  const {
+    category, merchant, search, date_from, date_to,
+    amount_min, amount_max, account_id,
+  } = req.query;
+
+  const conditions = [];
+  const params = [];
+
+  if (category) { conditions.push('t.category = ?'); params.push(category); }
+  if (merchant) { conditions.push('t.merchant_name LIKE ?'); params.push(`%${merchant}%`); }
+  if (search) { conditions.push('t.description LIKE ?'); params.push(`%${search}%`); }
+  if (date_from) { conditions.push('t.transaction_date >= ?'); params.push(date_from); }
+  if (date_to) { conditions.push('t.transaction_date <= ?'); params.push(date_to); }
+  if (amount_min) { conditions.push('t.amount >= ?'); params.push(Math.round(parseFloat(amount_min) * 100)); }
+  if (amount_max) { conditions.push('t.amount <= ?'); params.push(Math.round(parseFloat(amount_max) * 100)); }
+  if (account_id) { conditions.push('t.account_id = ?'); params.push(parseInt(account_id)); }
+
+  const where = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
+
+  // Core stats (charges only — exclude credits/payments)
+  const core = db.prepare(`
+    SELECT
+      COUNT(*) as count,
+      COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0) as sum,
+      COALESCE(MIN(CASE WHEN amount > 0 THEN amount END), 0) as min,
+      COALESCE(MAX(CASE WHEN amount > 0 THEN amount END), 0) as max,
+      COALESCE(AVG(CASE WHEN amount > 0 THEN amount END), 0) as avg,
+      COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END), 0) as total_credits
+    FROM transactions t ${where}
+  `).get(...params);
+
+  // Biggest single expense
+  const biggest = db.prepare(`
+    SELECT merchant_name, amount, transaction_date, category
+    FROM transactions t ${where}
+    ${where ? 'AND' : 'WHERE'} amount > 0
+    ORDER BY amount DESC LIMIT 1
+  `).get(...params);
+
+  // Most frequent merchant
+  const topMerchant = db.prepare(`
+    SELECT merchant_name, COUNT(*) as visits, SUM(amount) as total
+    FROM transactions t ${where}
+    ${where ? 'AND' : 'WHERE'} amount > 0
+    GROUP BY merchant_name ORDER BY visits DESC LIMIT 1
+  `).get(...params);
+
+  // Spending by day of week
+  const byDow = db.prepare(`
+    SELECT
+      CAST(strftime('%w', transaction_date) AS INTEGER) as dow,
+      SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END) as total,
+      COUNT(*) as count
+    FROM transactions t ${where}
+    GROUP BY dow ORDER BY dow
+  `).all(...params);
+
+  // Spending by month (trend)
+  const byMonth = db.prepare(`
+    SELECT
+      strftime('%Y-%m', transaction_date) as month,
+      SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END) as total,
+      COUNT(*) as count
+    FROM transactions t ${where}
+    GROUP BY month ORDER BY month
+  `).all(...params);
+
+  // Category breakdown
+  const byCategory = db.prepare(`
+    SELECT category, SUM(amount) as total, COUNT(*) as count
+    FROM transactions t ${where}
+    ${where ? 'AND' : 'WHERE'} amount > 0
+    GROUP BY category ORDER BY total DESC
+  `).all(...params);
+
+  const DOW_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const dowFull = DOW_LABELS.map((label, i) => {
+    const found = byDow.find(d => d.dow === i);
+    return { label, total: found ? found.total : 0, count: found ? found.count : 0 };
+  });
+
+  res.json({
+    count: core.count,
+    sum: core.sum,
+    min: core.min,
+    max: core.max,
+    avg: Math.round(core.avg),
+    totalCredits: core.total_credits,
+    biggest: biggest || null,
+    topMerchant: topMerchant || null,
+    byDow: dowFull,
+    byMonth,
+    byCategory,
+  });
+});
+
 // Merchant rules
 router.get('/merchant-rules', (req, res) => {
   const rules = db.prepare(`
