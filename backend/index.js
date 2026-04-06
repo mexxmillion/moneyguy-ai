@@ -28,3 +28,8 @@ app.get('*', (req, res) => {
 app.listen(PORT, () => {
   console.log(`MoneyGuy 2.0 backend running on http://localhost:${PORT}`);
 });
+
+// Start Telegram bot
+if (process.env.TELEGRAM_BOT_TOKEN) {
+  require('./services/telegramBot');
+}

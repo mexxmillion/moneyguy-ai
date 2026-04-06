@@ -1,5 +1,8 @@
 const pdfParse = require('pdf-parse');
 const { parse } = require('csv-parse/sync');
+const fs = require('fs');
+const path = require('path');
+const db = require('../db');
 
 function parseAmount(str) {
   const cleaned = str.replace(/[$,\s]/g, '');
@@ -142,4 +145,91 @@ function parseCsv(buffer) {
   return { rawText: text, transactions };
 }
 
-module.exports = { parsePdf, parseCsv, parseRBCPdf };
+async function parseImageTransactions(imagePath, apiKey) {
+  try {
+    const imageBuffer = fs.readFileSync(imagePath);
+    const base64 = imageBuffer.toString('base64');
+    const ext = path.extname(imagePath).toLowerCase().replace('.', '');
+    const mimeType = ext === 'jpg' ? 'image/jpeg' : `image/${ext}`;
+
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'openai/gpt-4o-mini',
+        messages: [{
+          role: 'user',
+          content: [
+            {
+              type: 'image_url',
+              image_url: { url: `data:${mimeType};base64,${base64}` },
+            },
+            {
+              type: 'text',
+              text: 'Extract all financial transactions from this bank screenshot. Return JSON array with fields: transaction_date (YYYY-MM-DD), description, amount (number, positive for debits/purchases, negative for credits/payments), currency (default CAD). Only return the JSON array, nothing else.',
+            },
+          ],
+        }],
+        temperature: 0.1,
+      }),
+    });
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || '';
+    // Extract JSON from response (may be wrapped in markdown code block)
+    const jsonMatch = content.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) return { transactions: [], error: 'No transactions found in image' };
+
+    const parsed = JSON.parse(jsonMatch[0]);
+    const transactions = parsed.map(t => ({
+      transaction_date: t.transaction_date,
+      posting_date: null,
+      description: t.description,
+      merchant_name: extractMerchant(t.description),
+      amount: Math.round(Math.abs(t.amount) * 100) * (t.amount < 0 ? -1 : 1),
+      currency: t.currency || 'CAD',
+    }));
+
+    return { transactions, error: null };
+  } catch (err) {
+    return { transactions: [], error: err.message };
+  }
+}
+
+function deduplicateTransactions(newTransactions) {
+  const checkStmt = db.prepare(
+    `SELECT id, merchant_name, description FROM transactions
+     WHERE transaction_date = ? AND amount = ?`
+  );
+
+  const inserted = [];
+  const duplicates = [];
+  const flagged = [];
+
+  for (const t of newTransactions) {
+    const matches = checkStmt.all(t.transaction_date, t.amount);
+    if (matches.length === 0) {
+      inserted.push(t);
+      continue;
+    }
+
+    const merchantPrefix = (t.merchant_name || t.description || '').substring(0, 20).toLowerCase();
+    const isExactMatch = matches.some(m => {
+      const existingMerchant = (m.merchant_name || m.description || '').substring(0, 20).toLowerCase();
+      return existingMerchant === merchantPrefix;
+    });
+
+    if (isExactMatch) {
+      duplicates.push(t);
+    } else {
+      flagged.push(t);
+    }
+  }
+
+  return { inserted, duplicates, flagged };
+}
+
+module.exports = { parsePdf, parseCsv, parseRBCPdf, parseImageTransactions, deduplicateTransactions };
