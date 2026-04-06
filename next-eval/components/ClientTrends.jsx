@@ -1,20 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { ChartJS } from '@/lib/chartSetup';
 import AppShell from '@/components/AppShell';
 import { fmt, fmtShort } from '@/components/format';
 
-// Register chart.js at module level — safe because this is a 'use client' file
-import {
-  Chart as ChartJS,
-  CategoryScale, LinearScale, BarElement, PointElement,
-  LineElement, ArcElement, Title, Tooltip, Legend, Filler,
-} from 'chart.js';
-import { Line, Bar, Doughnut } from 'react-chartjs-2';
-
-ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Title, Tooltip, Legend, Filler);
-
 const COLORS = ['#0058bc','#006e28','#bc000a','#f97316','#8b5cf6','#14b8a6','#64748b','#eab308'];
+
 const PRESETS = [
   { label: 'Last 30d', days: 30 },
   { label: 'Last 60d', days: 60 },
@@ -32,17 +24,76 @@ function getPresetDates(p) {
   return { date_from: from.toISOString().slice(0, 10), date_to: to.toISOString().slice(0, 10) };
 }
 
-const tickColor = '#717786';
-const tickFont = { size: 11 };
-const gridColor = '#e3e2e7';
-const axisCfg = { ticks: { color: tickColor, font: tickFont }, grid: { color: gridColor } };
-const moneyTick = v => '$' + v.toLocaleString();
-const moneyLabel = ctx => ` ${ctx.dataset.label}: $${ctx.parsed.y?.toLocaleString('en-CA', { minimumFractionDigits: 2 }) ?? ''}`;
-
 function dollars(n) {
   const v = parseFloat(n) || 0;
   return Number.isInteger(v) && Math.abs(v) > 100 ? v / 100 : v;
 }
+
+const tickColor = '#717786';
+const gridColor = '#e3e2e7';
+const moneyTick = v => '$' + v.toLocaleString();
+
+function useChart(canvasRef, type, data, options) {
+  const chartRef = useRef(null);
+  useEffect(() => {
+    if (!canvasRef.current) return;
+    if (chartRef.current) chartRef.current.destroy();
+    chartRef.current = new ChartJS(canvasRef.current, { type, data, options });
+    return () => { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
+  }, [JSON.stringify(data)]);
+}
+
+function LineChart({ data, options }) {
+  const ref = useRef(null);
+  useChart(ref, 'line', data, options);
+  return <canvas ref={ref} />;
+}
+
+function BarChart({ data, options }) {
+  const ref = useRef(null);
+  useChart(ref, 'bar', data, options);
+  return <canvas ref={ref} />;
+}
+
+function DonutChart({ data, options }) {
+  const ref = useRef(null);
+  useChart(ref, 'doughnut', data, options);
+  return <canvas ref={ref} />;
+}
+
+const lineOpts = {
+  responsive: true,
+  interaction: { mode: 'index', intersect: false },
+  plugins: {
+    legend: { labels: { color: tickColor } },
+    tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: $${ctx.parsed.y?.toLocaleString('en-CA', { minimumFractionDigits: 2 }) ?? ''}` } },
+  },
+  scales: {
+    x: { ticks: { color: tickColor, font: { size: 11 }, maxTicksLimit: 12 }, grid: { color: gridColor } },
+    y: { ticks: { color: tickColor, font: { size: 11 }, callback: moneyTick }, grid: { color: gridColor } },
+  },
+};
+
+const barOpts = {
+  responsive: true,
+  plugins: {
+    legend: { labels: { color: tickColor } },
+    tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: $${ctx.parsed.y?.toLocaleString('en-CA', { minimumFractionDigits: 2 }) ?? ''}` } },
+  },
+  scales: {
+    x: { ticks: { color: tickColor, font: { size: 11 } }, grid: { display: false } },
+    y: { ticks: { color: tickColor, font: { size: 11 }, callback: moneyTick }, grid: { color: gridColor } },
+  },
+};
+
+const donutOpts = {
+  responsive: true,
+  cutout: '65%',
+  plugins: {
+    legend: { display: false },
+    tooltip: { callbacks: { label: ctx => ` ${ctx.label}: $${ctx.parsed.toLocaleString('en-CA', { minimumFractionDigits: 2 })}` } },
+  },
+};
 
 export default function ClientTrends() {
   const [filters, setFilters] = useState(() => getPresetDates({ days: 90 }));
@@ -54,8 +105,7 @@ export default function ClientTrends() {
   const [cumulative, setCumulative] = useState(false);
 
   useEffect(() => {
-    fetch('/api/accounts')
-      .then(r => r.json())
+    fetch('/api/accounts').then(r => r.json())
       .then(d => setAccounts(d.groups?.flatMap(g => g.accounts) || []))
       .catch(() => {});
   }, []);
@@ -69,7 +119,8 @@ export default function ClientTrends() {
     fetch(`/api/transactions/trends?${params}`, { signal: controller.signal })
       .then(r => r.json())
       .then(d => { clearTimeout(timer); setData(d); setLoading(false); })
-      .catch(err => { clearTimeout(timer); if (err.name !== 'AbortError') console.error('Trends fetch error:', err); setLoading(false); });
+      .catch(err => { clearTimeout(timer); if (err.name !== 'AbortError') console.error(err); setLoading(false); });
+    return () => { clearTimeout(timer); controller.abort(); };
   }, [JSON.stringify(filters), groupBy]);
 
   const setPreset = p => {
@@ -88,21 +139,10 @@ export default function ClientTrends() {
     datasets: cumulative ? [{
       label: 'Cumulative Spend',
       data: data?.cumulativeData.map(r => dollars(r.cumulative)) || [],
-      borderColor: '#bc000a', backgroundColor: 'rgba(188,0,10,0.07)',
-      fill: true, tension: 0.3, pointRadius: 2,
+      borderColor: '#bc000a', backgroundColor: 'rgba(188,0,10,0.07)', fill: true, tension: 0.3, pointRadius: 2,
     }] : [
-      {
-        label: 'Spending',
-        data: data?.overTime.map(r => dollars(r.spending)) || [],
-        borderColor: '#bc000a', backgroundColor: 'rgba(188,0,10,0.07)',
-        fill: true, tension: 0.3, pointRadius: 3,
-      },
-      {
-        label: 'Credits',
-        data: data?.overTime.map(r => dollars(r.income)) || [],
-        borderColor: '#006e28', backgroundColor: 'rgba(0,110,40,0.06)',
-        fill: true, tension: 0.3, pointRadius: 3,
-      },
+      { label: 'Spending', data: data?.overTime.map(r => dollars(r.spending)) || [], borderColor: '#bc000a', backgroundColor: 'rgba(188,0,10,0.07)', fill: true, tension: 0.3, pointRadius: 3 },
+      { label: 'Credits', data: data?.overTime.map(r => dollars(r.income)) || [], borderColor: '#006e28', backgroundColor: 'rgba(0,110,40,0.06)', fill: true, tension: 0.3, pointRadius: 3 },
     ],
   };
 
@@ -117,18 +157,6 @@ export default function ClientTrends() {
   const donutData = {
     labels: data?.byCategory.map(c => c.category) || [],
     datasets: [{ data: data?.byCategory.map(c => dollars(c.total)) || [], backgroundColor: COLORS, borderColor: '#faf9fe', borderWidth: 2 }],
-  };
-
-  const lineOpts = {
-    responsive: true,
-    interaction: { mode: 'index', intersect: false },
-    plugins: { legend: { labels: { color: tickColor } }, tooltip: { callbacks: { label: moneyLabel } } },
-    scales: { x: { ...axisCfg, ticks: { ...axisCfg.ticks, maxTicksLimit: 12 } }, y: { ...axisCfg, ticks: { ...axisCfg.ticks, callback: moneyTick } } },
-  };
-  const barOpts = {
-    responsive: true,
-    plugins: { legend: { labels: { color: tickColor } }, tooltip: { callbacks: { label: moneyLabel } } },
-    scales: { x: { ticks: { color: tickColor, font: tickFont }, grid: { display: false } }, y: { ...axisCfg, ticks: { ...axisCfg.ticks, callback: moneyTick } } },
   };
 
   return (
@@ -170,7 +198,7 @@ export default function ClientTrends() {
         </div>
       </div>
 
-      {/* Summary stats */}
+      {/* Summary */}
       {data && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
           {[
@@ -191,7 +219,6 @@ export default function ClientTrends() {
 
       {data && !loading && (
         <>
-          {/* Spending over time */}
           <div className="surface-card rounded-[1.75rem] p-6 mb-6">
             <div className="mb-5 flex items-center justify-between">
               <h3 className="text-xl font-bold">Spending Over Time</h3>
@@ -200,27 +227,20 @@ export default function ClientTrends() {
                 {cumulative ? 'Cumulative' : 'Period'} ↔
               </button>
             </div>
-            <Line data={timeData} options={lineOpts} />
+            <LineChart data={timeData} options={lineOpts} />
           </div>
 
-          {/* MoM + donut */}
           <div className="grid gap-6 md:grid-cols-2 mb-6">
             <div className="surface-card rounded-[1.75rem] p-6">
               <h3 className="text-xl font-bold mb-5">Month over Month</h3>
-              <Bar data={momData} options={barOpts} />
+              <BarChart data={momData} options={barOpts} />
             </div>
             <div className="surface-card rounded-[1.75rem] p-6">
               <h3 className="text-xl font-bold mb-5">Category Breakdown</h3>
               {data.byCategory.length > 0 ? (
                 <div className="flex gap-4">
                   <div className="w-40 flex-shrink-0">
-                    <Doughnut data={donutData} options={{
-                      responsive: true, cutout: '65%',
-                      plugins: {
-                        legend: { display: false },
-                        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: $${ctx.parsed.toLocaleString('en-CA', { minimumFractionDigits: 2 })}` } },
-                      },
-                    }} />
+                    <DonutChart data={donutData} options={donutOpts} />
                   </div>
                   <div className="flex-1 space-y-1.5 pt-1">
                     {data.byCategory.map((c, i) => {
@@ -240,7 +260,6 @@ export default function ClientTrends() {
             </div>
           </div>
 
-          {/* Top merchants */}
           <div className="surface-card rounded-[1.75rem] p-6">
             <h3 className="text-xl font-bold mb-5">Top Merchants</h3>
             <div className="space-y-3">
