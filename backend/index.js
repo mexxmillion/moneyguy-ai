@@ -15,6 +15,7 @@ app.use('/api/upload', require('./routes/upload'));
 app.use('/api/transactions', require('./routes/transactions'));
 app.use('/api/ai', require('./routes/ai'));
 app.use('/api/export', require('./routes/export'));
+app.use('/api/admin', require('./routes/admin'));
 
 // Serve frontend in production
 const distPath = path.join(__dirname, '..', 'frontend', 'dist');

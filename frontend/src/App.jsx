@@ -4,6 +4,7 @@ import Upload from './pages/Upload';
 import Transactions from './pages/Transactions';
 import AIChat from './pages/AIChat';
 import Categories from './pages/Categories';
+import Settings from './pages/Settings';
 
 const tabs = [
   { id: 'dashboard', label: 'Dashboard', icon: '📊' },
@@ -11,6 +12,7 @@ const tabs = [
   { id: 'transactions', label: 'Transactions', icon: '💰' },
   { id: 'ai', label: 'AI Query', icon: '🤖' },
   { id: 'categories', label: 'Categories', icon: '🏷️' },
+  { id: 'settings', label: 'Settings', icon: '⚙️' },
 ];
 
 export default function App() {
@@ -46,6 +48,7 @@ export default function App() {
         {activeTab === 'transactions' && <Transactions />}
         {activeTab === 'ai' && <AIChat />}
         {activeTab === 'categories' && <Categories />}
+        {activeTab === 'settings' && <Settings />}
       </main>
     </div>
   );
